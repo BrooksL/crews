@@ -1205,11 +1205,17 @@
           "key": "ui.style",
           "type": "enum",
           "default": "\"classic\"",
-          "description": "Overall look. \"classic\" keeps today's shell; \"app\" draws a polished shell with a panel, cards, and a status bar. App style needs a dark theme; light and terminal themes keep the classic look.",
+          "description": "Overall look. \"classic\" keeps today's shell; \"app\" draws a polished shell with a panel, cards, and a status bar. App style needs a dark theme; light and terminal themes keep the classic look. App style also turns pane borders off and keeps gaps between split panes, drawn as gutters.",
           "values": [
             "classic",
             "app"
           ]
+        },
+        {
+          "key": "ui.dim_unfocused",
+          "type": "number",
+          "default": "0.0",
+          "description": "App style only: how far unfocused split panes fade toward their background, from 0.0 (off) to 1.0."
         },
         {
           "key": "ui.sidebar_width",

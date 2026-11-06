@@ -132,6 +132,8 @@ impl ClientShellState {
     }
 }
 
+/// Columns of panel fill on each side of app content.
+pub(super) const APP_PANEL_PADDING: u16 = 2;
 /// Smallest panel that app style lays out; anything smaller keeps classic.
 const APP_MIN_PANEL_WIDTH: u16 = 20;
 const APP_MIN_ROWS: u16 = 8;
@@ -140,8 +142,9 @@ const APP_MIN_ROWS: u16 = 8;
 ///
 /// The sidebar's last column is the left gutter (column 0 when the sidebar is
 /// hidden), column `cols - 1` is the right gutter, and the last row is the
-/// status bar. The panel's cap rows are its first and last rows; row 1 holds
-/// the tab bar and pane content fills the rows below it, down to the cap.
+/// status bar. The panel's cap rows are its first and last rows. Row 1 is the
+/// header, rows 2 and `rows - 3` are padding, and pane content fills the rows
+/// between them, inset two columns from each side.
 fn app_layout(cols: u16, rows: u16, sidebar_width: u16) -> Option<ClientShellLayout> {
     let panel_x = sidebar_width.max(1);
     let panel_width = cols.checked_sub(panel_x + 1)?;
@@ -153,9 +156,15 @@ fn app_layout(cols: u16, rows: u16, sidebar_width: u16) -> Option<ClientShellLay
         sidebar: Rect::new(0, 0, sidebar_width, rows - 1),
         tab_bar: Rect::new(panel_x, 1, panel_width, 1),
         mobile_header: Rect::default(),
-        pane_surface: Rect::new(panel_x, 2, panel_width, rows - 4),
+        pane_surface: Rect::new(
+            panel_x + APP_PANEL_PADDING,
+            3,
+            panel_width - 2 * APP_PANEL_PADDING,
+            rows - 6,
+        ),
         panel,
         status_bar: Rect::new(1, rows - 1, cols - 2, 1),
+        panel_padding_rows: [2, rows - 3],
     })
 }
 
@@ -172,6 +181,14 @@ fn app_style_sidebar_width(config: &Config) -> u16 {
 }
 
 pub(super) const APP_STYLE_SIDEBAR_WIDTH: u16 = 36;
+
+fn clamp_dim(value: f32) -> f32 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
 
 /// Warn when `ui.style = "app"` can't apply because a selected theme has no
 /// polished-shell colors (light and ANSI-only themes keep the classic look).
@@ -219,6 +236,7 @@ impl ClientShellConfig {
         let theme_runtime = crate::app::client_theme_runtime_from_config(config);
         Self {
             style: config.ui.style,
+            dim_unfocused: clamp_dim(config.ui.dim_unfocused),
             sidebar_width: app_style_sidebar_width(config),
             sidebar_min_width: config.ui.sidebar_min_width,
             sidebar_max_width: config.ui.sidebar_max_width,
@@ -448,6 +466,7 @@ impl ClientShellConfig {
                 let ui = &config.ui;
                 diagnostics.extend(ui.sound.diagnostics());
                 self.style = ui.style;
+                self.dim_unfocused = clamp_dim(ui.dim_unfocused);
                 self.sidebar_width = app_style_sidebar_width(config);
                 self.sidebar_min_width = ui.sidebar_min_width;
                 self.sidebar_max_width = ui.sidebar_max_width;
@@ -506,6 +525,7 @@ impl ClientShellConfig {
                 pane_surface: Rect::new(0, header_height, cols, rows.saturating_sub(header_height)),
                 panel: Rect::default(),
                 status_bar: Rect::default(),
+                panel_padding_rows: [0, 0],
             };
         }
 
@@ -559,6 +579,7 @@ impl ClientShellConfig {
             pane_surface,
             panel: Rect::default(),
             status_bar: Rect::default(),
+            panel_padding_rows: [0, 0],
         }
     }
 

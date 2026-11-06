@@ -5,7 +5,7 @@ mod overlays;
 #[path = "../shell/sidebar.rs"]
 pub(in crate::client::shell) mod sidebar;
 #[path = "../shell/tabs.rs"]
-mod tabs;
+pub(in crate::client::shell) mod tabs;
 
 pub(super) use super::agent_sidebar::{ordered_agent_pane_ids, render_agent_panel};
 pub(super) use super::aggregate_navigation::navigator_rows as client_navigator_rows;
@@ -332,7 +332,21 @@ pub(super) fn render_shell(
             }
         }
     }
-    if layout.tab_bar.height > 0 {
+    if let Some(app) = app.as_ref().filter(|_| layout.tab_bar.height > 0) {
+        super::app_header::render_app_header(
+            buffer,
+            layout.tab_bar,
+            snapshot,
+            config,
+            super::app_header::HeaderState {
+                tab_scroll: state.tab_scroll,
+                reveal_focused_tab: state.reveal_focused_tab,
+                tab_drag_insert_index: state.tab_drag_insert_index,
+            },
+            &mut hits,
+            app,
+        );
+    } else if layout.tab_bar.height > 0 {
         render_tab_bar(
             buffer,
             layout.tab_bar,
@@ -362,6 +376,11 @@ pub(super) fn render_shell(
         hits.tab_scroll_right = Rect::default();
         hits.new_tab = Rect::default();
         hits.pane_splits.clear();
+        hits.header_split = Rect::default();
+        hits.header_zoom = Rect::default();
+        hits.header_more = Rect::default();
+        hits.sidebar_spaces_chip = Rect::default();
+        hits.sidebar_agents_chip = Rect::default();
     }
     hits
 }

@@ -364,6 +364,21 @@ impl ClientShellState {
             frame.cells[start..start + usize::from(bar.width)].to_vec()
         });
         blit_pane_surface(&mut frame, &surface.frame, layout.pane_surface);
+        if let Some(app) = self
+            .config
+            .app_tokens()
+            .filter(|_| !layout.panel.is_empty())
+        {
+            app_chrome::paint_pane_gutters(&mut frame, &layout, &surface.panes, app);
+            app_chrome::dim_unfocused_panes(
+                &mut frame,
+                layout.pane_surface,
+                &surface.panes,
+                self.config.dim_unfocused,
+                &self.config.palette,
+                app,
+            );
+        }
         restore_mode_bar(&mut frame, mode_bar, mode_bar_cells.as_deref());
         let mut occlusion = crate::kitty_graphics::surface::Occlusion::default();
         let has_selection = self

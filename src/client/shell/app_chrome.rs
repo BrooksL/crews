@@ -4,7 +4,9 @@
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::Color;
+use ratatui::style::{Color, Style};
+
+use crate::protocol::FrameData;
 
 use super::shape::{self, Corners, Fill};
 use super::ClientShellLayout;
@@ -53,11 +55,161 @@ pub(super) fn render_backdrop(buffer: &mut Buffer, layout: &ClientShellLayout, a
         Corners::Square,
     );
     shape::fill_bg(buffer, layout.tab_bar, app.pane_bg);
+    for y in layout.panel_padding_rows {
+        shape::fill_bg(buffer, Rect::new(panel.x, y, panel.width, 1), app.pane_bg);
+    }
+    let content = layout.pane_surface;
+    shape::fill_bg(
+        buffer,
+        Rect::new(panel.x, content.y, content.x - panel.x, content.height),
+        app.pane_bg,
+    );
+    shape::fill_bg(
+        buffer,
+        Rect::new(
+            content.right(),
+            content.y,
+            panel.right().saturating_sub(content.right()),
+            content.height,
+        ),
+        app.pane_bg,
+    );
+    // The hairline under the header: a thin line along the top of the padding row.
+    let hairline = Style::default().fg(app.hairline).bg(app.pane_bg);
+    let hairline_y = layout.panel_padding_rows[0];
+    for x in panel.left()..panel.right() {
+        if let Some(cell) = buffer.cell_mut((x, hairline_y)) {
+            cell.set_symbol(HAIRLINE).set_style(hairline);
+        }
+    }
 }
 
-/// Fit what the classic sidebar and tab bar drew into the app chrome: their
-/// unset or classic backgrounds take the chrome and panel colors, and the
-/// sidebar's divider line becomes a plain gutter.
+/// Upper one-eighth block: reads as a one-pixel rule at the top of its cell.
+const HAIRLINE: &str = "▔";
+
+/// Paint the gaps between split panes as chrome gutters, so each pane reads
+/// as its own panel. Gutters at the content's edges reach through the panel
+/// padding (and the bottom cap) to the panel's border.
+pub(super) fn paint_pane_gutters(
+    frame: &mut FrameData,
+    layout: &ClientShellLayout,
+    panes: &[crate::protocol::PaneSurfacePane],
+    app: &AppTokens,
+) {
+    if panes.len() < 2 {
+        return;
+    }
+    let surface = layout.pane_surface;
+    let panel = layout.panel;
+    let chrome = crate::protocol::color_to_u32(app.chrome_bg);
+    let mut covered: Vec<(u16, u16)> = Vec::with_capacity(panes.len());
+    for row in 0..surface.height {
+        covered.clear();
+        covered.extend(
+            panes
+                .iter()
+                .filter(|pane| row >= pane.rect.y && row < pane.rect.y + pane.rect.height)
+                .map(|pane| (pane.rect.x, pane.rect.x + pane.rect.width)),
+        );
+        covered.sort_unstable();
+        let y = surface.y + row;
+        if covered.is_empty() {
+            // A horizontal gutter: run it out through the side padding.
+            paint_chrome(frame, panel.x, panel.right(), y, chrome);
+            continue;
+        }
+        let mut x = 0;
+        for &(start, end) in covered
+            .iter()
+            .chain(std::iter::once(&(surface.width, surface.width)))
+        {
+            if start > x {
+                let (left, right) = (surface.x + x, surface.x + start.min(surface.width));
+                paint_chrome(frame, left, right, y, chrome);
+                // Vertical gutters at the content's top and bottom run through
+                // the padding rows, and through the bottom cap.
+                if row == 0 {
+                    paint_chrome(frame, left, right, layout.panel_padding_rows[0], chrome);
+                }
+                if row + 1 == surface.height {
+                    paint_chrome(frame, left, right, layout.panel_padding_rows[1], chrome);
+                    paint_chrome(frame, left, right, panel.bottom() - 1, chrome);
+                }
+            }
+            x = x.max(end);
+        }
+    }
+}
+
+fn paint_chrome(frame: &mut FrameData, left: u16, right: u16, y: u16, chrome: u32) {
+    if y >= frame.height {
+        return;
+    }
+    let row = usize::from(y) * usize::from(frame.width);
+    for x in left..right.min(frame.width) {
+        let cell = &mut frame.cells[row + usize::from(x)];
+        cell.symbol.clear();
+        cell.symbol.push(' ');
+        cell.fg = 0;
+        cell.bg = chrome;
+        cell.modifier = 0;
+        cell.hyperlink = None;
+    }
+}
+
+/// Fade unfocused split panes by blending each cell's foreground toward its
+/// background. `amount` is 0.0 (no change) to 1.0. Only true-color cells and the
+/// default foreground can be blended; indexed colors are left alone.
+pub(super) fn dim_unfocused_panes(
+    frame: &mut FrameData,
+    surface: Rect,
+    panes: &[crate::protocol::PaneSurfacePane],
+    amount: f32,
+    palette: &Palette,
+    app: &AppTokens,
+) {
+    if amount <= 0.0 || panes.len() < 2 {
+        return;
+    }
+    let default_fg = crate::app::app_tokens::rgb(palette.text);
+    let default_bg = crate::app::app_tokens::rgb(app.pane_bg);
+    for pane in panes.iter().filter(|pane| !pane.focused) {
+        for row in pane.rect.y..pane.rect.y + pane.rect.height {
+            let y = surface.y + row;
+            if y >= frame.height {
+                break;
+            }
+            let start = usize::from(y) * usize::from(frame.width);
+            for col in pane.rect.x..pane.rect.x + pane.rect.width {
+                let x = surface.x + col;
+                if x >= frame.width {
+                    break;
+                }
+                let cell = &mut frame.cells[start + usize::from(x)];
+                let fg = match cell.fg {
+                    0 => default_fg,
+                    value => packed_rgb(value),
+                };
+                let bg = match cell.bg {
+                    0 => default_bg,
+                    value => packed_rgb(value),
+                };
+                if let (Some(fg), Some(bg)) = (fg, bg) {
+                    let (r, g, b) = crate::app::app_tokens::mix(fg, bg, f64::from(amount));
+                    cell.fg = crate::protocol::color_to_u32(Color::Rgb(r, g, b));
+                }
+            }
+        }
+    }
+}
+
+fn packed_rgb(value: u32) -> Option<(u8, u8, u8)> {
+    (value >> 24 == 0x02).then_some(((value >> 16) as u8, (value >> 8) as u8, value as u8))
+}
+
+/// Fit what the classic (collapsed or multi-machine) sidebar drew into the app
+/// chrome: its unset or classic backgrounds take the chrome color, and its
+/// divider line becomes a plain gutter.
 pub(super) fn finish(
     buffer: &mut Buffer,
     layout: &ClientShellLayout,
@@ -78,12 +230,6 @@ pub(super) fn finish(
             app.chrome_bg,
         );
     }
-    shape::recolor_bg(
-        buffer,
-        layout.tab_bar,
-        &[Color::Reset, palette.panel_bg],
-        app.pane_bg,
-    );
 }
 
 /// Move the classic mode bar's background onto the status bar's chrome.
@@ -137,9 +283,10 @@ mod tests {
             assert_eq!(layout.tab_bar, Rect::new(36, 1, cols - 37, 1));
             assert_eq!(
                 layout.pane_surface,
-                Rect::new(36, 2, cols - 37, rows - 4),
-                "content fills rows 2 to H-3 at {cols}x{rows}"
+                Rect::new(38, 3, cols - 41, rows - 6),
+                "content is inset 2 columns and fills rows 3 to H-4 at {cols}x{rows}"
             );
+            assert_eq!(layout.panel_padding_rows, [2, rows - 3]);
             assert_eq!(layout.status_bar, Rect::new(1, rows - 1, cols - 2, 1));
             assert!(layout.mobile_header.is_empty());
         }
@@ -174,7 +321,7 @@ mod tests {
     fn reported_pane_size_matches_the_panel_content() {
         let config = app_config();
         let surface = config.initial_surface_size(177, 48);
-        assert_eq!((surface.cols, surface.rows), (177 - 37, 48 - 4));
+        assert_eq!((surface.cols, surface.rows), (177 - 41, 48 - 6));
     }
 
     #[test]
@@ -258,6 +405,188 @@ mod tests {
         }
     }
 
+    fn pane(
+        x: u16,
+        y: u16,
+        width: u16,
+        height: u16,
+        focused: bool,
+    ) -> crate::protocol::PaneSurfacePane {
+        let rect = crate::protocol::SurfaceRect {
+            x,
+            y,
+            width,
+            height,
+        };
+        crate::protocol::PaneSurfacePane {
+            pane_id: format!("pane_{x}_{y}"),
+            content_revision: 0,
+            rect,
+            inner_rect: rect,
+            scrollbar_rect: None,
+            scroll: None,
+            focused,
+            mouse_reporting: false,
+            sgr_pixel_mouse: false,
+            alternate_screen_active: false,
+            pixel_width: 0,
+            pixel_height: 0,
+        }
+    }
+
+    fn frame(cols: u16, rows: u16) -> FrameData {
+        FrameData::from_ratatui_buffer(&Buffer::empty(Rect::new(0, 0, cols, rows)), None)
+    }
+
+    fn frame_cell(frame: &FrameData, x: u16, y: u16) -> &crate::protocol::CellData {
+        &frame.cells[usize::from(y) * usize::from(frame.width) + usize::from(x)]
+    }
+
+    #[test]
+    fn padding_and_hairline_sit_on_the_panel() {
+        let config = app_config();
+        let app = config.app_tokens().copied().unwrap();
+        let layout = config.layout(177, 48, false, 1, 36);
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 177, 48));
+        render_backdrop(&mut buffer, &layout, &app);
+        for x in 36..176 {
+            let hairline = &buffer[(x, 2)];
+            assert_eq!(
+                (hairline.symbol(), hairline.fg, hairline.bg),
+                ("▔", app.hairline, app.pane_bg),
+                "hairline at column {x}"
+            );
+            assert_eq!(buffer[(x, 45)].bg, app.pane_bg, "bottom padding row");
+        }
+        for y in 3..44 {
+            for x in [36, 37, 174, 175] {
+                assert_eq!(buffer[(x, y)].bg, app.pane_bg, "side padding at {x},{y}");
+            }
+        }
+    }
+
+    #[test]
+    fn side_by_side_panes_get_a_full_height_gutter() {
+        let config = app_config();
+        let app = config.app_tokens().copied().unwrap();
+        let layout = config.layout(177, 48, false, 1, 36);
+        let surface = layout.pane_surface;
+        let mut frame = frame(177, 48);
+        // Two panes with the server's one-column gap at surface column 60.
+        let panes = [
+            pane(0, 0, 60, surface.height, true),
+            pane(61, 0, surface.width - 61, surface.height, false),
+        ];
+        paint_pane_gutters(&mut frame, &layout, &panes, &app);
+        let chrome = crate::protocol::color_to_u32(app.chrome_bg);
+        let gutter_x = surface.x + 60;
+        for y in [2, surface.y, surface.bottom() - 1, 45, 46] {
+            assert_eq!(frame_cell(&frame, gutter_x, y).bg, chrome, "gutter row {y}");
+        }
+        assert_ne!(frame_cell(&frame, gutter_x - 1, surface.y).bg, chrome);
+        assert_ne!(
+            frame_cell(&frame, gutter_x, 1).bg,
+            chrome,
+            "the header stays whole"
+        );
+    }
+
+    #[test]
+    fn stacked_panes_get_a_gutter_across_the_panel() {
+        let config = app_config();
+        let app = config.app_tokens().copied().unwrap();
+        let layout = config.layout(177, 48, false, 1, 36);
+        let surface = layout.pane_surface;
+        let mut frame = frame(177, 48);
+        let panes = [
+            pane(0, 0, surface.width, 20, true),
+            pane(0, 21, surface.width, surface.height - 21, false),
+        ];
+        paint_pane_gutters(&mut frame, &layout, &panes, &app);
+        let chrome = crate::protocol::color_to_u32(app.chrome_bg);
+        let y = surface.y + 20;
+        for x in [36, 37, surface.x, surface.right() - 1, 174, 175] {
+            assert_eq!(frame_cell(&frame, x, y).bg, chrome, "gutter column {x}");
+        }
+    }
+
+    #[test]
+    fn a_single_pane_gets_no_gutter() {
+        let config = app_config();
+        let app = config.app_tokens().copied().unwrap();
+        let layout = config.layout(177, 48, false, 1, 36);
+        let mut frame = frame(177, 48);
+        let before = frame.cells.clone();
+        let surface = layout.pane_surface;
+        paint_pane_gutters(
+            &mut frame,
+            &layout,
+            &[pane(0, 0, surface.width, surface.height, true)],
+            &app,
+        );
+        assert_eq!(frame.cells, before);
+    }
+
+    #[test]
+    fn dimming_fades_only_unfocused_panes() {
+        let config = app_config();
+        let app = config.app_tokens().copied().unwrap();
+        let surface = Rect::new(0, 0, 20, 4);
+        let mut frame = frame(20, 4);
+        let white = crate::protocol::color_to_u32(Color::Rgb(255, 255, 255));
+        for cell in &mut frame.cells {
+            cell.fg = white;
+        }
+        let panes = [pane(0, 0, 10, 4, true), pane(10, 0, 10, 4, false)];
+        dim_unfocused_panes(&mut frame, surface, &panes, 0.0, &config.palette, &app);
+        assert!(
+            frame.cells.iter().all(|cell| cell.fg == white),
+            "0.0 is off"
+        );
+
+        dim_unfocused_panes(&mut frame, surface, &panes, 0.5, &config.palette, &app);
+        assert_eq!(frame_cell(&frame, 2, 1).fg, white, "focused pane untouched");
+        let (r, g, b) = crate::app::app_tokens::mix((255, 255, 255), (41, 44, 51), 0.5);
+        assert_eq!(
+            frame_cell(&frame, 12, 1).fg,
+            crate::protocol::color_to_u32(Color::Rgb(r, g, b))
+        );
+    }
+
+    #[test]
+    fn dim_unfocused_defaults_off_and_is_clamped() {
+        assert_eq!(app_config().dim_unfocused, 0.0);
+        let mut config = Config::default();
+        config.ui.dim_unfocused = 3.0;
+        assert_eq!(
+            super::super::ClientShellConfig::from_config(&config).dim_unfocused,
+            1.0
+        );
+        config.ui.dim_unfocused = f32::NAN;
+        assert_eq!(
+            super::super::ClientShellConfig::from_config(&config).dim_unfocused,
+            0.0
+        );
+    }
+
+    #[test]
+    fn app_style_turns_server_pane_borders_off_and_keeps_gaps() {
+        let mut config = Config::default();
+        config.ui.pane_borders = crate::config::PaneBordersConfig::Always;
+        config.ui.pane_gaps = false;
+        assert_eq!(
+            config.ui.effective_pane_borders(),
+            crate::config::PaneBordersConfig::Always
+        );
+        assert!(!config.ui.effective_pane_gaps());
+        config.ui.style = UiStyleConfig::App;
+        assert_eq!(
+            config.ui.effective_pane_borders(),
+            crate::config::PaneBordersConfig::Off
+        );
+        assert!(config.ui.effective_pane_gaps());
+    }
+
     /// Per-frame cost of the app chrome. It runs once per frame, not per pane.
     #[test]
     #[ignore = "profile; run with just bench-render-scale"]
@@ -282,6 +611,45 @@ mod tests {
                 samples[250] as f64 / 1000.0,
                 samples[475] as f64 / 1000.0
             );
+        }
+
+        // Gutters and dimming over split panes: a grid of 2 or 15 panes.
+        let layout = config.layout(270, 64, false, 1, 36);
+        let surface = layout.pane_surface;
+        for (columns, grid_rows) in [(2u16, 1u16), (5, 3)] {
+            let width = (surface.width - (columns - 1)) / columns;
+            let height = (surface.height - (grid_rows - 1)) / grid_rows;
+            let panes = (0..grid_rows)
+                .flat_map(|row| {
+                    (0..columns).map(move |column| {
+                        pane(
+                            column * (width + 1),
+                            row * (height + 1),
+                            width,
+                            height,
+                            row == 0 && column == 0,
+                        )
+                    })
+                })
+                .collect::<Vec<_>>();
+            for (label, dim) in [("gutters", 0.0), ("gutters+dim", 0.2)] {
+                let mut frame = frame(270, 64);
+                let mut samples = Vec::with_capacity(500);
+                for _ in 0..500 {
+                    let started = std::time::Instant::now();
+                    paint_pane_gutters(&mut frame, &layout, &panes, &app);
+                    dim_unfocused_panes(&mut frame, surface, &panes, dim, &config.palette, &app);
+                    std::hint::black_box(&frame);
+                    samples.push(started.elapsed().as_nanos());
+                }
+                samples.sort_unstable();
+                eprintln!(
+                    "app-chrome {label} panes={} median_us={:.1} p95_us={:.1}",
+                    panes.len(),
+                    samples[250] as f64 / 1000.0,
+                    samples[475] as f64 / 1000.0
+                );
+            }
         }
     }
 }

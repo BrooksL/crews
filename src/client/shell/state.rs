@@ -14,6 +14,8 @@ pub(crate) enum ClientShellKeybindingSource {
 
 pub(crate) struct ClientShellConfig {
     pub(super) style: crate::config::UiStyleConfig,
+    /// App style: unfocused split pane fade, 0.0 (off) to 1.0.
+    pub(super) dim_unfocused: f32,
     pub(super) sidebar_width: u16,
     pub(super) sidebar_min_width: u16,
     pub(super) sidebar_max_width: u16,
@@ -64,6 +66,8 @@ pub(super) struct ClientShellLayout {
     pub panel: Rect,
     /// App style: the status bar row. Empty in classic.
     pub status_bar: Rect,
+    /// App style: rows between the header and content, and above the bottom cap.
+    pub panel_padding_rows: [u16; 2],
 }
 
 /// A section of the app-style sidebar.
@@ -118,6 +122,10 @@ pub(super) struct ShellHitMap {
     /// App style: the `spaces` and `agents` section chips.
     pub(super) sidebar_spaces_chip: Rect,
     pub(super) sidebar_agents_chip: Rect,
+    /// App style: header icon buttons.
+    pub(super) header_split: Rect,
+    pub(super) header_zoom: Rect,
+    pub(super) header_more: Rect,
     pub(super) new_workspace: Rect,
     pub(super) new_tab: Rect,
     pub(super) tab_scroll_left: Rect,

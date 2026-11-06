@@ -342,6 +342,9 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # panel, cards, and a status bar (dark themes only; light themes stay classic).
 # style = "classic"
 
+# App style only: fade unfocused split panes, from 0.0 (off) to 1.0.
+# dim_unfocused = 0.0
+
 # Agent status indicators: "dots" preserves the compact color marks; "symbols" uses
 # distinct static glyphs for blocked, working, done, idle, and unknown states.
 # status_indicators = "dots"

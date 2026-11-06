@@ -1003,6 +1003,8 @@ pub struct UiConfig {
     pub pane_scrollbars: bool,
     /// Keep split panes visually separated instead of sharing divider borders. Default: true.
     pub pane_gaps: bool,
+    /// App style: how far unfocused split panes fade, from 0.0 (off) to 1.0. Default: 0.0.
+    pub dim_unfocused: f32,
     /// Show agent labels in split pane borders when no manual pane label is set. Default: false.
     pub show_agent_labels_on_pane_borders: bool,
     /// Hide the tab row when the workspace has one tab. Default: false.
@@ -1222,10 +1224,28 @@ impl Default for WorktreesConfig {
     }
 }
 
+impl UiConfig {
+    /// Pane borders the server draws. App style shows each split pane as its
+    /// own panel with gutters between them, so it turns borders off.
+    pub fn effective_pane_borders(&self) -> PaneBordersConfig {
+        match self.style {
+            UiStyleConfig::App => PaneBordersConfig::Off,
+            UiStyleConfig::Classic => self.pane_borders,
+        }
+    }
+
+    /// Whether split panes keep a one-cell gap. Always on in app style; the
+    /// client paints the gap as a chrome gutter.
+    pub fn effective_pane_gaps(&self) -> bool {
+        self.style == UiStyleConfig::App || self.pane_gaps
+    }
+}
+
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
             style: UiStyleConfig::Classic,
+            dim_unfocused: 0.0,
             sidebar_width: 26,
             sidebar_min_width: 18,
             sidebar_max_width: 36,

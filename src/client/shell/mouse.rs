@@ -2063,6 +2063,34 @@ impl ClientShellState {
                     );
                     return;
                 }
+                if super::contains(self.hits.header_split, point) {
+                    self.record_binding(
+                        crate::input::KeybindMatch::Action(
+                            crate::input::KeybindAction::SplitVertical,
+                        ),
+                        outcome,
+                    );
+                    return;
+                }
+                if super::contains(self.hits.header_zoom, point) {
+                    self.record_binding(
+                        crate::input::KeybindMatch::Action(crate::input::KeybindAction::Zoom),
+                        outcome,
+                    );
+                    return;
+                }
+                if super::contains(self.hits.header_more, point) {
+                    let pane_id = self
+                        .snapshot
+                        .as_deref()
+                        .and_then(|snapshot| snapshot.focused_pane_id.clone());
+                    if let Some(pane_id) = pane_id {
+                        let button = self.hits.header_more;
+                        self.open_pane_context_menu(pane_id, button.x, button.bottom());
+                        outcome.repaint = true;
+                    }
+                    return;
+                }
                 if super::contains(self.hits.new_tab, point) {
                     self.record_binding(
                         crate::input::KeybindMatch::Action(crate::input::KeybindAction::NewTab),

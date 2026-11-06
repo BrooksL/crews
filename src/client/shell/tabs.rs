@@ -291,7 +291,7 @@ fn render_tab_bar_status(
     }
 }
 
-fn tab_drop_indicator_x(
+pub(in crate::client::shell) fn tab_drop_indicator_x(
     hits: &ShellHitMap,
     tabs: &[&ClientShellTab],
     insert_index: usize,
@@ -327,7 +327,11 @@ fn tab_drop_indicator_x(
     None
 }
 
-fn centered_tab_scroll(focused: usize, widths: &[u16], available: u16) -> usize {
+pub(in crate::client::shell) fn centered_tab_scroll(
+    focused: usize,
+    widths: &[u16],
+    available: u16,
+) -> usize {
     let mut best = focused;
     let mut best_distance = u16::MAX;
     for start in 0..=focused {
@@ -352,7 +356,7 @@ fn centered_tab_scroll(focused: usize, widths: &[u16], available: u16) -> usize 
     best
 }
 
-fn max_tab_scroll(widths: &[u16], available: u16) -> usize {
+pub(in crate::client::shell) fn max_tab_scroll(widths: &[u16], available: u16) -> usize {
     let Some((&last, preceding)) = widths.split_last() else {
         return 0;
     };
