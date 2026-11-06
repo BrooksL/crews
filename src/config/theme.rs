@@ -4,6 +4,7 @@ use tracing::warn;
 pub const THEME_NAMES: &[&str] = &[
     "catppuccin",
     "catppuccin-latte",
+    "crews",
     "terminal",
     "tokyo-night",
     "tokyo-night-day",
@@ -26,6 +27,7 @@ pub(crate) fn canonical_theme_name(name: &str) -> Option<&'static str> {
     match name.to_lowercase().replace([' ', '_'], "-").as_str() {
         "catppuccin" | "catppuccin-mocha" => Some("catppuccin"),
         "catppuccin-latte" | "latte" | "light" => Some("catppuccin-latte"),
+        "crews" => Some("crews"),
         "terminal" => Some("terminal"),
         "tokyo-night" | "tokyonight" => Some("tokyo-night"),
         "tokyo-night-day" | "tokyo-day" | "tokyonight-day" => Some("tokyo-night-day"),
@@ -119,6 +121,42 @@ pub struct CustomThemeColors {
     pub blue: Option<String>,
     pub teal: Option<String>,
     pub peach: Option<String>,
+    /// App style: Window behind the panel: sidebar, gutters, status bar.
+    pub chrome_bg: Option<String>,
+    /// App style: Panel fill; match the terminal background.
+    pub pane_bg: Option<String>,
+    /// App style: Cards, off chips, pills.
+    pub card_bg: Option<String>,
+    /// App style: Cards and buttons under the mouse.
+    pub card_hover_bg: Option<String>,
+    /// App style: Focused space card, active tab.
+    pub card_focus_bg: Option<String>,
+    /// App style: Track behind the tabs.
+    pub segment_bg: Option<String>,
+    /// App style: Line under the panel header.
+    pub hairline: Option<String>,
+    /// App style: Rules beside section headings.
+    pub rule: Option<String>,
+    /// App style: Toasts and popovers.
+    pub float_bg: Option<String>,
+    /// App style: Hovered popover row.
+    pub float_hover_bg: Option<String>,
+    /// App style: Divider inside popovers.
+    pub float_divider: Option<String>,
+    /// App style: Dims everything behind an open menu.
+    pub scrim: Option<String>,
+    /// App style: Focused names, header title.
+    pub text_strong: Option<String>,
+    /// App style: Inactive tabs, off chips, icon buttons.
+    pub text_secondary: Option<String>,
+    /// App style: Secondary names in cards.
+    pub text_muted: Option<String>,
+    /// App style: Section headings, key hints, session name.
+    pub label: Option<String>,
+    /// App style: Toast body text.
+    pub toast_body: Option<String>,
+    /// App style: Text on accent fills.
+    pub accent_fg: Option<String>,
     /// Overrides applied when `auto_switch` selects a light appearance.
     pub light: Option<ModeThemeColors>,
     /// Overrides applied when `auto_switch` selects a dark appearance.
@@ -148,6 +186,42 @@ pub struct ModeThemeColors {
     pub blue: Option<String>,
     pub teal: Option<String>,
     pub peach: Option<String>,
+    /// App style: Window behind the panel: sidebar, gutters, status bar.
+    pub chrome_bg: Option<String>,
+    /// App style: Panel fill; match the terminal background.
+    pub pane_bg: Option<String>,
+    /// App style: Cards, off chips, pills.
+    pub card_bg: Option<String>,
+    /// App style: Cards and buttons under the mouse.
+    pub card_hover_bg: Option<String>,
+    /// App style: Focused space card, active tab.
+    pub card_focus_bg: Option<String>,
+    /// App style: Track behind the tabs.
+    pub segment_bg: Option<String>,
+    /// App style: Line under the panel header.
+    pub hairline: Option<String>,
+    /// App style: Rules beside section headings.
+    pub rule: Option<String>,
+    /// App style: Toasts and popovers.
+    pub float_bg: Option<String>,
+    /// App style: Hovered popover row.
+    pub float_hover_bg: Option<String>,
+    /// App style: Divider inside popovers.
+    pub float_divider: Option<String>,
+    /// App style: Dims everything behind an open menu.
+    pub scrim: Option<String>,
+    /// App style: Focused names, header title.
+    pub text_strong: Option<String>,
+    /// App style: Inactive tabs, off chips, icon buttons.
+    pub text_secondary: Option<String>,
+    /// App style: Secondary names in cards.
+    pub text_muted: Option<String>,
+    /// App style: Section headings, key hints, session name.
+    pub label: Option<String>,
+    /// App style: Toast body text.
+    pub toast_body: Option<String>,
+    /// App style: Text on accent fills.
+    pub accent_fg: Option<String>,
 }
 
 /// Parse a color string into a ratatui Color.

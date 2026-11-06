@@ -188,11 +188,17 @@ fn run_client_with_mode(
     let client_rendered_shell = attach_request.is_none();
     let socket_path = client_socket_path();
     let keybinding_source = client_shell_keybinding_source();
+    let startup_diagnostics = loaded_config
+        .diagnostics
+        .iter()
+        .cloned()
+        .chain(shell::app_style_diagnostic(&loaded_config.config))
+        .collect::<Vec<_>>();
     let startup_config_diagnostic =
         if keybinding_source == shell::ClientShellKeybindingSource::Endpoint {
-            crate::config::config_diagnostic_summary_without_keybindings(&loaded_config.diagnostics)
+            crate::config::config_diagnostic_summary_without_keybindings(&startup_diagnostics)
         } else {
-            crate::config::config_diagnostic_summary(&loaded_config.diagnostics)
+            crate::config::config_diagnostic_summary(&startup_diagnostics)
         };
     let shell_config = client_rendered_shell.then(|| {
         shell::ClientShellConfig::from_config(&loaded_config.config)

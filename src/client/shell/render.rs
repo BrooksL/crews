@@ -258,6 +258,13 @@ pub(super) fn render_shell(
     mut state: ShellRenderState<'_>,
 ) -> ShellHitMap {
     let mut hits = ShellHitMap::default();
+    let app = config
+        .app_tokens()
+        .filter(|_| !layout.panel.is_empty())
+        .copied();
+    if let Some(app) = app.as_ref() {
+        super::app_chrome::render_backdrop(buffer, &layout, app);
+    }
     if layout.mobile_header.height > 0 {
         super::mobile::render_mobile_header(
             buffer,
@@ -320,6 +327,9 @@ pub(super) fn render_shell(
             state.tab_drag_insert_index,
             &mut hits,
         );
+    }
+    if let Some(app) = app.as_ref() {
+        super::app_chrome::finish(buffer, &layout, &config.palette, app);
     }
     if !config.mouse_capture {
         hits.sidebar_divider = Rect::default();

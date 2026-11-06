@@ -13,6 +13,7 @@ pub(crate) enum ClientShellKeybindingSource {
 }
 
 pub(crate) struct ClientShellConfig {
+    pub(super) style: crate::config::UiStyleConfig,
     pub(super) sidebar_width: u16,
     pub(super) sidebar_min_width: u16,
     pub(super) sidebar_max_width: u16,
@@ -59,6 +60,10 @@ pub(super) struct ClientShellLayout {
     pub tab_bar: Rect,
     pub mobile_header: Rect,
     pub pane_surface: Rect,
+    /// App style: the pane panel, cap rows included. Empty in classic.
+    pub panel: Rect,
+    /// App style: the status bar row. Empty in classic.
+    pub status_bar: Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

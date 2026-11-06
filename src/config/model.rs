@@ -110,6 +110,16 @@ enum LegacyAgentPanelScopeConfig {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
+pub enum UiStyleConfig {
+    /// Today's look.
+    #[default]
+    Classic,
+    /// Polished shell: chrome, a rounded pane panel, cards, and a status bar.
+    App,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[serde(rename_all = "lowercase")]
 pub enum StatusIndicatorStyle {
     #[default]
     Dots,
@@ -937,6 +947,9 @@ impl<'de> Deserialize<'de> for PaneBordersConfig {
 #[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct UiConfig {
+    /// Overall look. "classic" keeps today's shell; "app" turns on the polished shell
+    /// (dark themes only). Default: "classic".
+    pub style: UiStyleConfig,
     pub sidebar_width: u16,
     /// Minimum sidebar width (columns) when expanded. Default: 18.
     pub sidebar_min_width: u16,
@@ -1198,6 +1211,7 @@ impl Default for WorktreesConfig {
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
+            style: UiStyleConfig::Classic,
             sidebar_width: 26,
             sidebar_min_width: 18,
             sidebar_max_width: 36,
@@ -1473,6 +1487,21 @@ agent_panel_scope = "current"
 "#;
         let config: Config = toml::from_str(toml).unwrap();
         assert_eq!(config.ui.agent_panel_sort, AgentPanelSortConfig::Spaces);
+    }
+
+    #[test]
+    fn ui_style_defaults_to_classic_and_parses_app() {
+        assert_eq!(Config::default().ui.style, UiStyleConfig::Classic);
+
+        let config: Config = toml::from_str(
+            r#"
+[ui]
+style = "app"
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.ui.style, UiStyleConfig::App);
+        assert!(toml::from_str::<Config>("[ui]\nstyle = \"fancy\"\n").is_err());
     }
 
     #[test]

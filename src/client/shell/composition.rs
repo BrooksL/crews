@@ -307,7 +307,9 @@ impl ClientShellState {
         if !self.config.mouse_capture {
             self.hits.pane_splits.clear();
         }
-        let mode_bar_area = if layout.mobile_header.is_empty()
+        let mode_bar_area = if !layout.status_bar.is_empty() {
+            layout.status_bar
+        } else if layout.mobile_header.is_empty()
             && self.config.tab_bar_position == TabBarPositionConfig::Bottom
             && !layout.tab_bar.is_empty()
         {
@@ -332,6 +334,18 @@ impl ClientShellState {
                 &self.config.palette,
             )
         };
+        if let Some(app) = self
+            .config
+            .app_tokens()
+            .filter(|_| !layout.status_bar.is_empty())
+        {
+            app_chrome::finish_status_bar(
+                &mut buffer,
+                layout.status_bar,
+                &self.config.palette,
+                app,
+            );
+        }
         if mode_bar == Some(layout.tab_bar) {
             self.hits.tabs.clear();
             self.hits.new_tab = Rect::default();

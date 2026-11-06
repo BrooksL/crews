@@ -74,7 +74,7 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 [theme]
 # Built-in themes: catppuccin, terminal, tokyo-night, dracula, nord,
 #                  gruvbox, one-dark, solarized, kanagawa, rose-pine,
-#                  vesper
+#                  vesper, crews (dark slate made for ui.style = "app")
 # name = "catppuccin"
 
 # Follow host terminal light/dark appearance and switch Herdr UI themes.
@@ -335,6 +335,10 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Agent panel ordering: "spaces" (grouped by space) or "priority" (attention queue).
 # "workspaces" is accepted as an alias for "spaces".
 # agent_panel_sort = "spaces"
+
+# Overall look: "classic" keeps today's shell; "app" draws a polished shell with a
+# panel, cards, and a status bar (dark themes only; light themes stay classic).
+# style = "classic"
 
 # Agent status indicators: "dots" preserves the compact color marks; "symbols" uses
 # distinct static glyphs for blocked, working, done, idle, and unknown states.

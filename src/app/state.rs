@@ -22,6 +22,7 @@ pub(crate) struct PopupPaneState {
     pub height: Option<crate::popup_size::PopupSize>,
 }
 
+pub use super::app_tokens::AppTokens;
 use crate::terminal_theme::{HostAppearance, TerminalTheme};
 use crate::workspace::Workspace;
 
@@ -71,6 +72,70 @@ pub struct Palette {
     pub teal: Color,
     /// Interrupted / warning states.
     pub peach: Color,
+    /// Polished-shell colors (`ui.style = "app"`). None for light and ANSI-only themes,
+    /// which keep the classic look.
+    pub app: Option<AppTokens>,
+}
+
+/// Apply `theme.custom` polished-shell overrides. Themes without app tokens
+/// (light and ANSI-only) ignore them, because app style falls back to classic there.
+macro_rules! apply_app_overrides {
+    ($app:expr, $custom:expr) => {
+        if let Some(c) = &$custom.chrome_bg {
+            $app.chrome_bg = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.pane_bg {
+            $app.pane_bg = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.card_bg {
+            $app.card_bg = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.card_hover_bg {
+            $app.card_hover_bg = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.card_focus_bg {
+            $app.card_focus_bg = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.segment_bg {
+            $app.segment_bg = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.hairline {
+            $app.hairline = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.rule {
+            $app.rule = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.float_bg {
+            $app.float_bg = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.float_hover_bg {
+            $app.float_hover_bg = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.float_divider {
+            $app.float_divider = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.scrim {
+            $app.scrim = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.text_strong {
+            $app.text_strong = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.text_secondary {
+            $app.text_secondary = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.text_muted {
+            $app.text_muted = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.label {
+            $app.label = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.toast_body {
+            $app.toast_body = crate::config::parse_color(c);
+        }
+        if let Some(c) = &$custom.accent_fg {
+            $app.accent_fg = crate::config::parse_color(c);
+        }
+    };
 }
 
 impl Palette {
@@ -96,6 +161,54 @@ impl Palette {
             blue: Color::Rgb(137, 180, 250),
             teal: Color::Rgb(148, 226, 213),
             peach: Color::Rgb(250, 179, 135),
+            app: None,
+        }
+        .with_dark_app_tokens((30, 30, 46))
+    }
+
+    /// Crews — dark slate tuned for the polished shell. Pair it with a terminal
+    /// background of #292c33 (the panel color) so app content blends in.
+    pub fn crews() -> Self {
+        Self {
+            accent: Color::Rgb(197, 167, 242),
+            panel_bg: Color::Rgb(31, 34, 40),
+            sidebar_bg: Color::Reset,
+            active_row_bg: Color::Rgb(50, 54, 63),
+            selection_bg: Color::Rgb(58, 63, 77),
+            surface0: Color::Rgb(50, 54, 63),
+            surface1: Color::Rgb(69, 75, 91),
+            surface_dim: Color::Rgb(35, 38, 44),
+            overlay0: Color::Rgb(142, 146, 168),
+            overlay1: Color::Rgb(154, 158, 178),
+            text: Color::Rgb(195, 200, 221),
+            subtext0: Color::Rgb(160, 164, 184),
+            mauve: Color::Rgb(197, 167, 242),
+            green: Color::Rgb(179, 225, 167),
+            yellow: Color::Rgb(249, 226, 175),
+            red: Color::Rgb(243, 139, 168),
+            blue: Color::Rgb(159, 195, 251),
+            teal: Color::Rgb(165, 224, 213),
+            peach: Color::Rgb(250, 179, 135),
+            app: Some(AppTokens {
+                chrome_bg: Color::Rgb(31, 34, 40),
+                pane_bg: Color::Rgb(41, 44, 51),
+                card_bg: Color::Rgb(43, 46, 54),
+                card_hover_bg: Color::Rgb(50, 54, 63),
+                card_focus_bg: Color::Rgb(58, 63, 77),
+                segment_bg: Color::Rgb(35, 38, 44),
+                hairline: Color::Rgb(53, 57, 67),
+                rule: Color::Rgb(51, 54, 62),
+                float_bg: Color::Rgb(54, 59, 71),
+                float_hover_bg: Color::Rgb(69, 75, 91),
+                float_divider: Color::Rgb(74, 79, 92),
+                scrim: Color::Rgb(10, 11, 14),
+                text_strong: Color::Rgb(236, 238, 248),
+                text_secondary: Color::Rgb(160, 164, 184),
+                text_muted: Color::Rgb(154, 158, 178),
+                label: Color::Rgb(142, 146, 168),
+                toast_body: Color::Rgb(180, 184, 201),
+                accent_fg: Color::Rgb(30, 30, 45),
+            }),
         }
     }
 
@@ -121,6 +234,7 @@ impl Palette {
             blue: Color::Rgb(30, 102, 245),
             teal: Color::Rgb(23, 146, 153),
             peach: Color::Rgb(254, 100, 11),
+            app: None,
         }
     }
 
@@ -146,6 +260,7 @@ impl Palette {
             blue: Color::Blue,
             teal: Color::Cyan,
             peach: Color::Yellow,
+            app: None,
         }
     }
 
@@ -171,7 +286,9 @@ impl Palette {
             blue: Color::Rgb(122, 162, 247),
             teal: Color::Rgb(125, 207, 255),
             peach: Color::Rgb(255, 158, 100),
+            app: None,
         }
+        .with_dark_app_tokens((26, 27, 38))
     }
 
     /// Tokyo Night Day — the light Tokyo Night style.
@@ -196,6 +313,7 @@ impl Palette {
             blue: Color::Rgb(46, 125, 233),
             teal: Color::Rgb(17, 140, 116),
             peach: Color::Rgb(177, 92, 0),
+            app: None,
         }
     }
 
@@ -221,7 +339,9 @@ impl Palette {
             blue: Color::Rgb(139, 233, 253), // cyan-ish
             teal: Color::Rgb(139, 233, 253),
             peach: Color::Rgb(255, 184, 108),
+            app: None,
         }
+        .with_dark_app_tokens((40, 42, 54))
     }
 
     /// Nord — frosty blue palette.
@@ -246,7 +366,9 @@ impl Palette {
             blue: Color::Rgb(129, 161, 193),
             teal: Color::Rgb(143, 188, 187),
             peach: Color::Rgb(208, 135, 112),
+            app: None,
         }
+        .with_dark_app_tokens((46, 52, 64))
     }
 
     /// Gruvbox Dark — warm retro palette.
@@ -271,7 +393,9 @@ impl Palette {
             blue: Color::Rgb(131, 165, 152),
             teal: Color::Rgb(142, 192, 124),
             peach: Color::Rgb(254, 128, 25),
+            app: None,
         }
+        .with_dark_app_tokens((40, 40, 40))
     }
 
     /// Gruvbox Light — the light retro palette.
@@ -296,6 +420,7 @@ impl Palette {
             blue: Color::Rgb(7, 102, 120),
             teal: Color::Rgb(66, 123, 88),
             peach: Color::Rgb(175, 58, 3),
+            app: None,
         }
     }
 
@@ -321,7 +446,9 @@ impl Palette {
             blue: Color::Rgb(97, 175, 239),
             teal: Color::Rgb(86, 182, 194),
             peach: Color::Rgb(209, 154, 102),
+            app: None,
         }
+        .with_dark_app_tokens((40, 44, 52))
     }
 
     /// One Light — Atom's classic light theme.
@@ -346,6 +473,7 @@ impl Palette {
             blue: Color::Rgb(64, 120, 242),
             teal: Color::Rgb(1, 132, 188),
             peach: Color::Rgb(152, 104, 1),
+            app: None,
         }
     }
 
@@ -371,7 +499,9 @@ impl Palette {
             blue: Color::Rgb(38, 139, 210),
             teal: Color::Rgb(42, 161, 152),
             peach: Color::Rgb(203, 75, 22),
+            app: None,
         }
+        .with_dark_app_tokens((0, 43, 54))
     }
 
     /// Solarized Light — Ethan Schoonover's light variant.
@@ -396,6 +526,7 @@ impl Palette {
             blue: Color::Rgb(38, 139, 210),
             teal: Color::Rgb(42, 161, 152),
             peach: Color::Rgb(203, 75, 22),
+            app: None,
         }
     }
 
@@ -421,7 +552,9 @@ impl Palette {
             blue: Color::Rgb(126, 156, 216),
             teal: Color::Rgb(127, 180, 202),
             peach: Color::Rgb(255, 160, 102),
+            app: None,
         }
+        .with_dark_app_tokens((31, 31, 40))
     }
 
     /// Kanagawa Lotus — the light Kanagawa variant.
@@ -446,6 +579,7 @@ impl Palette {
             blue: Color::Rgb(77, 105, 155),
             teal: Color::Rgb(78, 140, 162),
             peach: Color::Rgb(204, 109, 0),
+            app: None,
         }
     }
 
@@ -471,7 +605,9 @@ impl Palette {
             blue: Color::Rgb(49, 116, 143),    // pine
             teal: Color::Rgb(156, 207, 216),   // foam
             peach: Color::Rgb(234, 154, 151),  // rose
+            app: None,
         }
+        .with_dark_app_tokens((25, 23, 36))
     }
 
     /// Rosé Pine Dawn — the light Rosé Pine variant.
@@ -496,6 +632,7 @@ impl Palette {
             blue: Color::Rgb(40, 105, 131),
             teal: Color::Rgb(86, 148, 159),
             peach: Color::Rgb(215, 130, 126),
+            app: None,
         }
     }
 
@@ -521,13 +658,16 @@ impl Palette {
             blue: Color::Rgb(176, 176, 176),
             teal: Color::Rgb(102, 221, 204),
             peach: Color::Rgb(255, 199, 153),
+            app: None,
         }
+        .with_dark_app_tokens((16, 16, 16))
     }
 
     /// Resolve a theme by name. Returns None for unknown names.
     pub fn from_name(name: &str) -> Option<Self> {
         match crate::config::canonical_theme_name(name)? {
             "catppuccin" => Some(Self::catppuccin()),
+            "crews" => Some(Self::crews()),
             "catppuccin-latte" => Some(Self::catppuccin_latte()),
             "terminal" => Some(Self::terminal()),
             "tokyo-night" => Some(Self::tokyo_night()),
@@ -547,6 +687,12 @@ impl Palette {
             "vesper" => Some(Self::vesper()),
             _ => None,
         }
+    }
+
+    /// Derive polished-shell tokens from this dark theme's terminal background.
+    fn with_dark_app_tokens(mut self, pane_bg: (u8, u8, u8)) -> Self {
+        self.app = Some(AppTokens::derive_dark(pane_bg, self.text, self.accent));
+        self
     }
 
     /// Apply custom color overrides on top of this palette.
@@ -609,6 +755,9 @@ impl Palette {
         if let Some(c) = &custom.peach {
             self.peach = parse_color(c);
         }
+        if let Some(app) = self.app.as_mut() {
+            apply_app_overrides!(app, custom);
+        }
         self
     }
 
@@ -670,6 +819,9 @@ impl Palette {
         }
         if let Some(c) = &custom.peach {
             self.peach = parse_color(c);
+        }
+        if let Some(app) = self.app.as_mut() {
+            apply_app_overrides!(app, custom);
         }
         self
     }
@@ -1396,6 +1548,143 @@ mod tests {
             (a.max(b), a.min(b))
         };
         (lighter + 0.05) / (darker + 0.05)
+    }
+
+    /// Text tokens and the surfaces the polished shell draws them on.
+    fn app_text_pairs(app: &AppTokens, palette: &Palette) -> Vec<(&'static str, Color, Color)> {
+        let mut pairs = Vec::new();
+        let mut on = |name: &'static str, fg: Color, surfaces: &[Color]| {
+            pairs.extend(surfaces.iter().map(|surface| (name, fg, *surface)));
+        };
+        on(
+            "text_strong",
+            app.text_strong,
+            &[app.card_focus_bg, app.float_bg, app.pane_bg],
+        );
+        on(
+            "text",
+            palette.text,
+            &[
+                app.card_bg,
+                app.card_hover_bg,
+                app.card_focus_bg,
+                app.float_bg,
+                app.float_hover_bg,
+            ],
+        );
+        on(
+            "text_secondary",
+            app.text_secondary,
+            &[
+                app.chrome_bg,
+                app.card_bg,
+                app.card_hover_bg,
+                app.segment_bg,
+            ],
+        );
+        on(
+            "text_muted",
+            app.text_muted,
+            &[app.card_bg, app.card_hover_bg],
+        );
+        on(
+            "label",
+            app.label,
+            &[app.chrome_bg, app.segment_bg, app.pane_bg],
+        );
+        // On a hovered popover row, key hints switch to `text`.
+        on("toast_body", app.toast_body, &[app.float_bg]);
+        on("accent_fg", app.accent_fg, &[palette.accent]);
+        pairs
+    }
+
+    #[test]
+    fn dark_built_in_themes_have_app_tokens_and_light_ones_do_not() {
+        for name in crate::config::THEME_NAMES {
+            let palette = Palette::from_name(name).unwrap();
+            let expect_tokens = *name != "terminal"
+                && rgb_luminance(palette.text) > rgb_luminance(palette.panel_bg);
+            assert_eq!(
+                palette.app.is_some(),
+                expect_tokens,
+                "unexpected app tokens for {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn app_text_tokens_meet_contrast_on_every_built_in_theme() {
+        for name in crate::config::THEME_NAMES {
+            let palette = Palette::from_name(name).unwrap();
+            let Some(app) = palette.app.as_ref() else {
+                continue;
+            };
+            for (token, fg, surface) in app_text_pairs(app, &palette) {
+                let ratio = contrast_ratio(fg, surface);
+                assert!(
+                    ratio >= crate::app::app_tokens::MIN_TEXT_CONTRAST,
+                    "{name}: {token} {fg:?} on {surface:?} is {ratio:.2}:1"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn crews_accent_and_status_colors_meet_contrast_on_app_surfaces() {
+        let palette = Palette::crews();
+        let app = palette.app.unwrap();
+        let surfaces = [
+            app.chrome_bg,
+            app.pane_bg,
+            app.card_bg,
+            app.card_hover_bg,
+            app.card_focus_bg,
+            app.float_bg,
+        ];
+        for (token, fg) in [
+            ("accent", palette.accent),
+            ("green", palette.green),
+            ("teal", palette.teal),
+            ("yellow", palette.yellow),
+            ("red", palette.red),
+        ] {
+            for surface in surfaces {
+                let ratio = contrast_ratio(fg, surface);
+                assert!(
+                    ratio >= 4.5,
+                    "crews: {token} on {surface:?} is {ratio:.2}:1"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn custom_app_tokens_override_the_derived_ones() {
+        let custom = crate::config::CustomThemeColors {
+            chrome_bg: Some("#101010".to_string()),
+            label: Some("#abcdef".to_string()),
+            ..Default::default()
+        };
+        let app = Palette::catppuccin().with_overrides(&custom).app.unwrap();
+        assert_eq!(app.chrome_bg, Color::Rgb(16, 16, 16));
+        assert_eq!(app.label, Color::Rgb(171, 205, 239));
+        assert_eq!(
+            app.card_bg,
+            Palette::catppuccin().app.unwrap().card_bg,
+            "untouched tokens keep their derived value"
+        );
+    }
+
+    #[test]
+    fn light_themes_ignore_app_token_overrides() {
+        let custom = crate::config::CustomThemeColors {
+            chrome_bg: Some("#101010".to_string()),
+            ..Default::default()
+        };
+        assert!(Palette::catppuccin_latte()
+            .with_overrides(&custom)
+            .app
+            .is_none());
     }
 
     #[test]
