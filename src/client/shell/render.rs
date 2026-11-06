@@ -243,6 +243,9 @@ pub(super) struct ShellRenderState<'a> {
     pub(super) reveal_focused_tab: &'a mut bool,
     pub(super) sidebar_collapsed: bool,
     pub(super) sidebar_section_split: f32,
+    pub(super) sidebar_section_split_manual: bool,
+    pub(super) sidebar_spaces_visible: bool,
+    pub(super) sidebar_agents_visible: bool,
     pub(super) tab_drag_insert_index: Option<usize>,
     pub(super) selected_workspace_id: Option<&'a WorkspaceNavigationTarget>,
     pub(super) reveal_navigation_workspace: &'a mut bool,
@@ -306,14 +309,27 @@ pub(super) fn render_shell(
                 &mut hits,
             );
         } else {
-            render_sidebar(
-                buffer,
-                layout.sidebar,
-                snapshot,
-                config,
-                &mut state,
-                &mut hits,
-            );
+            let drew_app_sidebar = app.as_ref().is_some_and(|app| {
+                super::app_sidebar::render_app_sidebar(
+                    buffer,
+                    layout.sidebar,
+                    snapshot,
+                    config,
+                    &mut state,
+                    &mut hits,
+                    app,
+                )
+            });
+            if !drew_app_sidebar {
+                render_sidebar(
+                    buffer,
+                    layout.sidebar,
+                    snapshot,
+                    config,
+                    &mut state,
+                    &mut hits,
+                );
+            }
         }
     }
     if layout.tab_bar.height > 0 {

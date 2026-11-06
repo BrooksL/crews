@@ -1950,6 +1950,14 @@ impl ClientShellState {
                     self.persist_chrome_preferences(outcome);
                     return;
                 }
+                if super::contains(self.hits.sidebar_spaces_chip, point) {
+                    self.toggle_sidebar_section(SidebarSection::Spaces, outcome);
+                    return;
+                }
+                if super::contains(self.hits.sidebar_agents_chip, point) {
+                    self.toggle_sidebar_section(SidebarSection::Agents, outcome);
+                    return;
+                }
                 if super::contains(self.hits.sidebar_divider, point) {
                     let now = std::time::Instant::now();
                     let double_click = self.last_sidebar_divider_click.is_some_and(|last| {

@@ -66,6 +66,13 @@ pub(super) struct ClientShellLayout {
     pub status_bar: Rect,
 }
 
+/// A section of the app-style sidebar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SidebarSection {
+    Spaces,
+    Agents,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum ClientMobileTarget {
     Machine(ClientEndpointId),
@@ -108,6 +115,9 @@ pub(super) struct ShellHitMap {
     pub(super) sidebar_divider: Rect,
     pub(super) sidebar_section_divider: Rect,
     pub(super) sidebar_toggle: Rect,
+    /// App style: the `spaces` and `agents` section chips.
+    pub(super) sidebar_spaces_chip: Rect,
+    pub(super) sidebar_agents_chip: Rect,
     pub(super) new_workspace: Rect,
     pub(super) new_tab: Rect,
     pub(super) tab_scroll_left: Rect,
@@ -880,6 +890,9 @@ pub(crate) struct ClientShellState {
     pub(super) sidebar_width_manual: bool,
     pub(super) sidebar_section_split: f32,
     pub(super) sidebar_section_split_manual: bool,
+    /// App-style sidebar section visibility (the `spaces` and `agents` chips).
+    pub(super) sidebar_spaces_visible: bool,
+    pub(super) sidebar_agents_visible: bool,
     pub(super) agent_panel_sort_manual: bool,
     pub(super) last_sidebar_divider_click: Option<std::time::Instant>,
     pub(super) chrome_drag: Option<ClientChromeDrag>,
@@ -1054,6 +1067,8 @@ impl ClientShellState {
             sidebar_width_manual: preferences.sidebar_width.is_some(),
             sidebar_section_split,
             sidebar_section_split_manual: preferences.sidebar_section_split.is_some(),
+            sidebar_spaces_visible: preferences.sidebar_spaces_visible.unwrap_or(true),
+            sidebar_agents_visible: preferences.sidebar_agents_visible.unwrap_or(true),
             agent_panel_sort_manual: preferences.agent_panel_sort.is_some(),
             last_sidebar_divider_click: None,
             chrome_drag: None,

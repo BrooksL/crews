@@ -19,6 +19,16 @@ impl ClientShellState {
                 outcome.resize = true;
                 self.persist_chrome_preferences(outcome);
             }
+            crate::input::KeybindMatch::Action(
+                crate::input::KeybindAction::ToggleSidebarSpaces,
+            ) => {
+                self.toggle_sidebar_section(SidebarSection::Spaces, outcome);
+            }
+            crate::input::KeybindMatch::Action(
+                crate::input::KeybindAction::ToggleSidebarAgents,
+            ) => {
+                self.toggle_sidebar_section(SidebarSection::Agents, outcome);
+            }
             crate::input::KeybindMatch::Action(action) => {
                 if self.workspace_preview_action_blocked()
                     && matches!(

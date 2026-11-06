@@ -56,6 +56,8 @@ impl ClientShellState {
             sidebar_collapsed: self
                 .sidebar_collapsed_manual
                 .then_some(self.sidebar_collapsed),
+            sidebar_spaces_visible: (!self.sidebar_spaces_visible).then_some(false),
+            sidebar_agents_visible: (!self.sidebar_agents_visible).then_some(false),
             agent_panel_sort: self
                 .agent_panel_sort_manual
                 .then_some(self.config.agent_panel_sort),
@@ -66,6 +68,26 @@ impl ClientShellState {
             self.set_endpoint_error(error);
             outcome.repaint = true;
         }
+    }
+
+    /// Show or hide one section of the app-style sidebar and remember it.
+    pub(super) fn toggle_sidebar_section(
+        &mut self,
+        section: SidebarSection,
+        outcome: &mut ClientShellInput,
+    ) {
+        match section {
+            SidebarSection::Spaces => {
+                self.sidebar_spaces_visible = !self.sidebar_spaces_visible;
+                self.workspace_scroll = 0;
+            }
+            SidebarSection::Agents => {
+                self.sidebar_agents_visible = !self.sidebar_agents_visible;
+                self.agent_scroll = 0;
+            }
+        }
+        outcome.repaint = true;
+        self.persist_chrome_preferences(outcome);
     }
 
     pub(crate) fn reload_client_config(&mut self) {

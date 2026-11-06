@@ -1166,6 +1166,18 @@
           "description": "Toggle sidebar collapse."
         },
         {
+          "key": "keys.toggle_sidebar_spaces",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Show or hide the spaces section of the app-style sidebar (`ui.style = \"app\"`). Unset by default."
+        },
+        {
+          "key": "keys.toggle_sidebar_agents",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Show or hide the agents section of the app-style sidebar (`ui.style = \"app\"`). Unset by default."
+        },
+        {
           "key": "keys.indexed.tabs",
           "type": "string",
           "default": "unset",
