@@ -16,6 +16,7 @@ pub(crate) struct ClientShellConfig {
     pub(super) style: crate::config::UiStyleConfig,
     /// App style: unfocused split pane fade, 0.0 (off) to 1.0.
     pub(super) dim_unfocused: f32,
+    pub(super) corners: crate::config::CornersConfig,
     pub(super) sidebar_width: u16,
     pub(super) sidebar_min_width: u16,
     pub(super) sidebar_max_width: u16,
@@ -891,6 +892,10 @@ pub(crate) struct ClientShellState {
     pub(super) pending_pane_surface: Option<PaneSurfaceFrame>,
     pub(super) graphics: crate::kitty_graphics::surface::ClientState,
     pub(super) graphics_cell_size: crate::kitty_graphics::HostCellSize,
+    /// App style rounded corners: image cache and live placements.
+    pub(super) chrome_graphics: super::chrome_graphics::ChromeGraphics,
+    /// Whether the attached terminal is known to show kitty images under text.
+    pub(super) host_shows_kitty_images: bool,
     pub(super) popup_terminal_id: Option<String>,
     pub(super) sidebar_collapsed: bool,
     pub(super) sidebar_collapsed_manual: bool,
@@ -1068,6 +1073,8 @@ impl ClientShellState {
                 width_px: 1,
                 height_px: 1,
             },
+            chrome_graphics: Default::default(),
+            host_shows_kitty_images: false,
             popup_terminal_id: None,
             sidebar_collapsed,
             sidebar_collapsed_manual: preferences.sidebar_collapsed.is_some(),

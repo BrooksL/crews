@@ -449,8 +449,13 @@ fn app_sidebar_render_scale_profile() {
                 ClientShellConfig::from_config(&Config::default()),
             ),
             ("app", app_config()),
+            ("app-rounded", app_config()),
         ] {
             let mut state = ClientShellState::new(config);
+            if style == "app-rounded" {
+                state.set_graphics_cell_size(19, 42);
+                state.set_host_shows_kitty_images(true);
+            }
             state.set_snapshot(Box::new(snapshot.clone()));
             state.set_pane_surface(surface());
             state.compose(COLS, ROWS).unwrap();

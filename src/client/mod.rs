@@ -504,6 +504,13 @@ async fn run_client_loop(
         shell.set_host_reports_key_releases(config.host_escape_disambiguation_active);
         shell.set_host_erase_byte(crate::platform::terminal_erase_byte());
         shell.set_graphics_cell_size(initial_cell_width_px, initial_cell_height_px);
+        shell.set_host_shows_kitty_images(
+            state.kitty_graphics_enabled
+                && host_shows_kitty_images(
+                    std::env::var("TERM_PROGRAM").ok().as_deref(),
+                    std::env::var("TERM").ok().as_deref(),
+                ),
+        );
         shell.set_endpoint_catalog(&endpoint_catalog.ssh);
         shell.set_endpoint_methods_for(
             &endpoint::ClientEndpointId::Local,
@@ -2395,3 +2402,34 @@ async fn run_client_loop(
 
 #[cfg(test)]
 mod tests;
+
+/// Terminals known to draw kitty images under text, which app-style rounded
+/// corners rely on (`ui.corners = "auto"`).
+fn host_shows_kitty_images(term_program: Option<&str>, term: Option<&str>) -> bool {
+    let program = term_program.unwrap_or_default().to_ascii_lowercase();
+    let term = term.unwrap_or_default().to_ascii_lowercase();
+    matches!(program.as_str(), "ghostty" | "kitty" | "wezterm")
+        || term.contains("kitty")
+        || term.contains("ghostty")
+}
+
+#[cfg(test)]
+mod host_kitty_image_tests {
+    use super::host_shows_kitty_images;
+
+    #[test]
+    fn known_kitty_image_terminals_are_detected() {
+        assert!(host_shows_kitty_images(Some("ghostty"), None));
+        assert!(host_shows_kitty_images(Some("WezTerm"), None));
+        assert!(host_shows_kitty_images(None, Some("xterm-kitty")));
+        assert!(host_shows_kitty_images(None, Some("xterm-ghostty")));
+        assert!(!host_shows_kitty_images(
+            Some("Apple_Terminal"),
+            Some("xterm-256color")
+        ));
+        assert!(!host_shows_kitty_images(
+            Some("herdr"),
+            Some("xterm-256color")
+        ));
+    }
+}

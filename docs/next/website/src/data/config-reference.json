@@ -1218,6 +1218,17 @@
           "description": "App style only: how far unfocused split panes fade toward their background, from 0.0 (off) to 1.0."
         },
         {
+          "key": "ui.corners",
+          "type": "enum",
+          "default": "\"auto\"",
+          "values": [
+            "auto",
+            "rounded",
+            "square"
+          ],
+          "description": "App style only: rounded corners drawn with kitty images. \"auto\" turns them on when the terminal is Ghostty, kitty, or WezTerm and the cell size in pixels is known; \"rounded\" forces them; \"square\" never uses images."
+        },
+        {
           "key": "ui.sidebar_width",
           "type": "integer",
           "default": "26",

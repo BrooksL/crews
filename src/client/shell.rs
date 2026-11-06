@@ -6,6 +6,7 @@ mod aggregate_navigation;
 mod app_chrome;
 mod app_header;
 mod app_sidebar;
+mod chrome_graphics;
 mod machine_diagnostics;
 mod workspace_navigation;
 use workspace_navigation::{PendingWorkspaceHighlight, WorkspaceNavigationTarget};

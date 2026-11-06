@@ -246,6 +246,8 @@ pub(super) struct ShellRenderState<'a> {
     pub(super) sidebar_section_split_manual: bool,
     pub(super) sidebar_spaces_visible: bool,
     pub(super) sidebar_agents_visible: bool,
+    /// Rounded-mode corner marks collected while drawing.
+    pub(super) corners: &'a mut super::shape::Corners,
     pub(super) tab_drag_insert_index: Option<usize>,
     pub(super) selected_workspace_id: Option<&'a WorkspaceNavigationTarget>,
     pub(super) reveal_navigation_workspace: &'a mut bool,
@@ -266,7 +268,7 @@ pub(super) fn render_shell(
         .filter(|_| !layout.panel.is_empty())
         .copied();
     if let Some(app) = app.as_ref() {
-        super::app_chrome::render_backdrop(buffer, &layout, app);
+        super::app_chrome::render_backdrop(buffer, &layout, app, state.corners);
     }
     if layout.mobile_header.height > 0 {
         super::mobile::render_mobile_header(
@@ -342,6 +344,7 @@ pub(super) fn render_shell(
                 tab_scroll: state.tab_scroll,
                 reveal_focused_tab: state.reveal_focused_tab,
                 tab_drag_insert_index: state.tab_drag_insert_index,
+                corners: state.corners,
             },
             &mut hits,
             app,

@@ -152,7 +152,15 @@ pub(super) fn render_app_sidebar(
         );
     }
     if let Some(section) = layout.spaces {
-        heading(buffer, &layout, section.heading_y, "spaces", None, app);
+        heading(
+            buffer,
+            &layout,
+            section.heading_y,
+            "spaces",
+            None,
+            app,
+            state.corners,
+        );
         hits.workspace_body = section.list;
         render_space_cards(buffer, section.list, snapshot, config, state, hits, app);
     }
@@ -172,6 +180,7 @@ pub(super) fn render_app_sidebar(
             "agents",
             Some(sort_label),
             app,
+            state.corners,
         );
         hits.agent_sort_toggle = if config.mouse_capture && snapshot.agent_view_label.is_none() {
             pill
@@ -196,17 +205,18 @@ pub(super) fn render_app_sidebar(
             state.agent_scroll,
             hits,
             app,
+            state.corners,
         );
     }
 
-    render_footer(buffer, &layout, snapshot, config, hits, app);
+    render_footer(buffer, &layout, snapshot, config, hits, app, state.corners);
     true
 }
 
 fn render_chips(
     buffer: &mut Buffer,
     layout: &AppSidebarLayout,
-    state: &ShellRenderState<'_>,
+    state: &mut ShellRenderState<'_>,
     accent: Color,
     app: &AppTokens,
     hits: &mut ShellHitMap,
@@ -224,21 +234,21 @@ fn render_chips(
     let right = layout.collapse.x.saturating_sub(1);
     hits.sidebar_spaces_chip = shape::pill(
         buffer,
-        layout.content.x,
-        layout.chips_y,
+        (layout.content.x, layout.chips_y),
         right,
         "spaces",
         chip_style(state.sidebar_spaces_visible),
-        Corners::Square,
+        app.chrome_bg,
+        state.corners,
     );
     hits.sidebar_agents_chip = shape::pill(
         buffer,
-        hits.sidebar_spaces_chip.right() + 1,
-        layout.chips_y,
+        (hits.sidebar_spaces_chip.right() + 1, layout.chips_y),
         right,
         "agents",
         chip_style(state.sidebar_agents_visible),
-        Corners::Square,
+        app.chrome_bg,
+        state.corners,
     );
 }
 
@@ -251,6 +261,7 @@ fn heading(
     title: &str,
     pill: Option<&str>,
     app: &AppTokens,
+    corners: &mut Corners,
 ) -> Rect {
     let content = layout.content;
     let after_title = put_segment(
@@ -265,12 +276,12 @@ fn heading(
         let width = display_width(label) + 2;
         shape::pill(
             buffer,
-            content.right().saturating_sub(width),
-            y,
+            (content.right().saturating_sub(width), y),
             content.right(),
             label,
             Style::default().fg(app.text_secondary).bg(app.card_bg),
-            Corners::Square,
+            app.chrome_bg,
+            corners,
         )
     });
     let rule_end = if pill_rect.is_empty() {
@@ -398,7 +409,7 @@ fn render_space_cards(
             buffer,
             content,
             Fill::new(fill, app.chrome_bg),
-            Corners::Square,
+            state.corners,
         );
         let status = displayed_workspace_status(snapshot, workspace, state.collapsed_groups);
         let rows = workspace_rows(workspace, status, entry.indented, &config.spaces);
@@ -672,6 +683,7 @@ fn render_agent_cards(
     agent_scroll: &mut usize,
     hits: &mut ShellHitMap,
     app: &AppTokens,
+    corners: &mut Corners,
 ) {
     let palette = &config.palette;
     let cards = agent_cards(snapshot, config);
@@ -709,12 +721,7 @@ fn render_agent_cards(
         }
         let content = Rect::new(list.x, y + 1, list.width, height - CARD_CAP_ROWS);
         let fill = app.card_bg;
-        shape::card(
-            buffer,
-            content,
-            Fill::new(fill, app.chrome_bg),
-            Corners::Square,
-        );
+        shape::card(buffer, content, Fill::new(fill, app.chrome_bg), corners);
         let text_right = content.right().saturating_sub(2);
         let mut row_y = content.y;
         if card.grouped {
@@ -866,17 +873,18 @@ fn render_footer(
     config: &ClientShellConfig,
     hits: &mut ShellHitMap,
     app: &AppTokens,
+    corners: &mut Corners,
 ) {
     let content = layout.content;
     let button = Style::default().fg(app.text_secondary).bg(app.card_bg);
     hits.new_workspace = shape::pill(
         buffer,
-        content.x,
-        layout.footer_y,
+        (content.x, layout.footer_y),
         content.right(),
         "+ new space",
         button,
-        Corners::Square,
+        app.chrome_bg,
+        corners,
     );
     let attention = super::global_menu::global_menu_attention(snapshot);
     let menu_style = if attention {
@@ -891,11 +899,11 @@ fn render_footer(
     let width = display_width(label) + 2;
     hits.global_launcher = shape::pill(
         buffer,
-        content.right().saturating_sub(width),
-        layout.footer_y,
+        (content.right().saturating_sub(width), layout.footer_y),
         content.right(),
         label,
         menu_style,
-        Corners::Square,
+        app.chrome_bg,
+        corners,
     );
 }

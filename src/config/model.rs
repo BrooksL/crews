@@ -110,6 +110,18 @@ enum LegacyAgentPanelScopeConfig {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
+pub enum CornersConfig {
+    /// Rounded when the terminal can show kitty images (Ghostty, kitty, WezTerm).
+    #[default]
+    Auto,
+    /// Always draw rounded corners when the cell size in pixels is known.
+    Rounded,
+    /// Never use images; corners are square half blocks.
+    Square,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[serde(rename_all = "lowercase")]
 pub enum UiStyleConfig {
     /// Today's look.
     #[default]
@@ -1005,6 +1017,9 @@ pub struct UiConfig {
     pub pane_gaps: bool,
     /// App style: how far unfocused split panes fade, from 0.0 (off) to 1.0. Default: 0.0.
     pub dim_unfocused: f32,
+    /// App style: rounded corners drawn with kitty images. "auto", "rounded", or "square".
+    /// Default: "auto".
+    pub corners: CornersConfig,
     /// Show agent labels in split pane borders when no manual pane label is set. Default: false.
     pub show_agent_labels_on_pane_borders: bool,
     /// Hide the tab row when the workspace has one tab. Default: false.
@@ -1246,6 +1261,7 @@ impl Default for UiConfig {
         Self {
             style: UiStyleConfig::Classic,
             dim_unfocused: 0.0,
+            corners: CornersConfig::Auto,
             sidebar_width: 26,
             sidebar_min_width: 18,
             sidebar_max_width: 36,

@@ -54,6 +54,7 @@ impl ClientShellState {
                 && self.endpoint_status(&self.active_endpoint_id)
                     == Some(ClientEndpointStatus::Online)
         });
+        let mut unavailable_corners = super::shape::Corners::square();
         let mut render_state = render::ShellRenderState {
             machine_diagnostics: &self.machine_diagnostics,
             endpoints: &self.endpoints,
@@ -71,6 +72,7 @@ impl ClientShellState {
             sidebar_section_split_manual: self.sidebar_section_split_manual,
             sidebar_spaces_visible: self.sidebar_spaces_visible,
             sidebar_agents_visible: self.sidebar_agents_visible,
+            corners: &mut unavailable_corners,
             tab_drag_insert_index: None,
             selected_workspace_id: self
                 .navigate_workspace_id
@@ -208,6 +210,11 @@ impl ClientShellState {
             _ => (None, None),
         };
         let mut buffer = Buffer::empty(Rect::new(0, 0, cols, rows));
+        let mut corners = if self.rounded_corners() {
+            super::shape::Corners::rounded()
+        } else {
+            super::shape::Corners::square()
+        };
         self.hits = render::render_shell(
             &mut buffer,
             layout,
@@ -230,6 +237,7 @@ impl ClientShellState {
                 sidebar_section_split_manual: self.sidebar_section_split_manual,
                 sidebar_spaces_visible: self.sidebar_spaces_visible,
                 sidebar_agents_visible: self.sidebar_agents_visible,
+                corners: &mut corners,
                 tab_drag_insert_index,
                 selected_workspace_id: self
                     .navigate_workspace_id
@@ -755,7 +763,13 @@ impl ClientShellState {
             self.hits.pane_splits.clear();
             self.hits.popup = None;
         }
-        let graphics = self.compose_graphics(layout, &occlusion);
+        let mut graphics = self.compose_graphics(layout, &occlusion);
+        graphics.extend(if corners.is_rounded() {
+            self.chrome_graphics
+                .encode(&corners, &occlusion, self.graphics_cell_size)
+        } else {
+            self.chrome_graphics.clear()
+        });
         Some(crate::client::frame_output::ComposedFrame { frame, graphics })
     }
 }

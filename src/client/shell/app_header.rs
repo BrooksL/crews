@@ -26,6 +26,7 @@ pub(super) struct HeaderState<'a> {
     pub tab_scroll: &'a mut usize,
     pub reveal_focused_tab: &'a mut bool,
     pub tab_drag_insert_index: Option<usize>,
+    pub corners: &'a mut shape::Corners,
 }
 
 pub(super) fn render_app_header(
@@ -183,6 +184,7 @@ fn render_tabs(
         }
         let track = Rect::new(track_x, area.y, used + 2, 1);
         shape::clear(buffer, track, app.segment_bg);
+        shape::round_pill_ends(buffer, track, app.segment_bg, app.pane_bg, state.corners);
         if overflow {
             hits.tab_scroll_left = Rect::new(track.x, area.y, 1, 1);
             hits.tab_scroll_right = Rect::new(track.right() - 1, area.y, 1, 1);
@@ -250,6 +252,9 @@ fn render_tabs(
                 &text[number_text.len()..],
                 name.bg(fill),
             );
+            if tab.focused {
+                shape::round_pill_ends(buffer, rect, fill, app.segment_bg, state.corners);
+            }
             hits.tabs.push((rect, tab.tab_id.clone()));
             x += width;
         }

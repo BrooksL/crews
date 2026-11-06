@@ -69,6 +69,11 @@ impl Occlusion {
         }
     }
 
+    /// Whether anything drawn over the frame touches `rect`.
+    pub(crate) fn covers_rect(&self, rect: Rect) -> bool {
+        self.regions.iter().any(|region| region.intersects(rect))
+    }
+
     pub(crate) fn start_popup(&mut self, rect: Rect) {
         self.cover(rect);
         self.popup_start = self.regions.len();

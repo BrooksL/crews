@@ -246,6 +246,7 @@ fn surface_with_popup() -> PaneSurfaceFrame {
 }
 
 mod agents_worktrees_notifications;
+mod app_corners;
 mod app_header;
 mod app_sidebar;
 mod chrome_context;

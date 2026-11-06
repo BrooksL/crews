@@ -345,6 +345,10 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # App style only: fade unfocused split panes, from 0.0 (off) to 1.0.
 # dim_unfocused = 0.0
 
+# App style only: rounded corners drawn with kitty images. "auto" turns them on in
+# Ghostty, kitty, and WezTerm; "rounded" forces them; "square" never uses images.
+# corners = "auto"
+
 # Agent status indicators: "dots" preserves the compact color marks; "symbols" uses
 # distinct static glyphs for blocked, working, done, idle, and unknown states.
 # status_indicators = "dots"

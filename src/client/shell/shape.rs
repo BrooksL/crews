@@ -2,9 +2,13 @@
 //! panels, and floating surfaces drawn from terminal cells.
 //!
 //! Softness comes from half-row caps: the row above a card is `▄` and the row
-//! below is `▀`, colored with the card fill over the surface beneath. Rounded
-//! corners (kitty graphics) arrive later; callers already pass [`Corners`] so
-//! they won't change when they do.
+//! below is `▀`, colored with the card fill over the surface beneath.
+//!
+//! In rounded mode the corner cells of caps, and the end cells of pills, are
+//! left blank on the surface beneath and recorded as [`CornerMark`]s. The
+//! client turns each mark into a small kitty image under the text that paints
+//! the fill with a rounded edge. Square mode draws the same half blocks all
+//! the way across.
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -13,12 +17,95 @@ use ratatui::style::{Color, Style};
 const UPPER_CAP: &str = "▄";
 const LOWER_CAP: &str = "▀";
 
-/// How corner cells are drawn.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(super) enum Corners {
+/// Which edge of a shape a corner image rounds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum CornerKind {
+    /// Cap cells: the fill covers the lower (top caps) or upper (bottom caps)
+    /// half of the cell, rounded on one side.
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+    /// Pill ends: a half-ellipse the full height of the cell.
+    PillLeft,
+    PillRight,
+}
+
+/// How round a corner is. Radii scale with the cell height.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum Radius {
+    Card,
+    Panel,
+    Pill,
+}
+
+/// One cell that rounded mode paints with an image.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct CornerMark {
+    pub x: u16,
+    pub y: u16,
+    pub kind: CornerKind,
+    pub radius: Radius,
+    pub fill: Color,
+    pub beneath: Color,
+}
+
+/// A soft shadow under a floating surface. `area` is the cells the shadow
+/// image covers; `card` is the surface's own footprint inside it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct ShadowMark {
+    pub area: Rect,
+    pub card: Rect,
+}
+
+/// How corner cells are drawn, and (in rounded mode) the marks collected
+/// while drawing a frame.
+#[derive(Debug, Default)]
+pub(crate) struct Corners {
+    rounded: bool,
+    marks: Vec<CornerMark>,
+    shadows: Vec<ShadowMark>,
+}
+
+impl Corners {
     /// Corner cells use the same half blocks as the rest of the edge.
-    #[default]
-    Square,
+    pub(crate) fn square() -> Self {
+        Self::default()
+    }
+
+    /// Corner cells are left for rounded images.
+    pub(crate) fn rounded() -> Self {
+        Self {
+            rounded: true,
+            ..Self::default()
+        }
+    }
+
+    pub(crate) fn is_rounded(&self) -> bool {
+        self.rounded
+    }
+
+    pub(crate) fn marks(&self) -> &[CornerMark] {
+        &self.marks
+    }
+
+    pub(crate) fn shadows(&self) -> &[ShadowMark] {
+        &self.shadows
+    }
+
+    fn mark(&mut self, buffer: &mut Buffer, mark: CornerMark) {
+        if let Some(cell) = buffer.cell_mut((mark.x, mark.y)) {
+            let symbol_is_blank = cell.symbol().trim().is_empty()
+                || cell.symbol() == UPPER_CAP
+                || cell.symbol() == LOWER_CAP;
+            if symbol_is_blank {
+                cell.reset();
+                cell.set_symbol(" ");
+            }
+            cell.set_bg(mark.beneath);
+            self.marks.push(mark);
+        }
+    }
 }
 
 /// A filled shape and the color of the surface it sits on.
@@ -88,17 +175,69 @@ pub(super) fn bottom_cap(buffer: &mut Buffer, x: u16, y: u16, width: u16, fill: 
     cap_row(buffer, x, y, width, LOWER_CAP, fill);
 }
 
-/// A card: `content` rows filled, with caps on the row above and the row below.
-/// Returns the full footprint including caps (the click target).
-pub(super) fn card(buffer: &mut Buffer, content: Rect, fill: Fill, _corners: Corners) -> Rect {
+/// Round the two end cells of a cap row.
+fn round_cap(
+    buffer: &mut Buffer,
+    row: Rect,
+    top: bool,
+    fill: Fill,
+    radius: Radius,
+    corners: &mut Corners,
+) {
+    if !corners.rounded || row.width < 2 || row.y >= buffer.area.bottom() {
+        return;
+    }
+    let (left, right) = if top {
+        (CornerKind::TopLeft, CornerKind::TopRight)
+    } else {
+        (CornerKind::BottomLeft, CornerKind::BottomRight)
+    };
+    for (x, kind) in [(row.x, left), (row.right() - 1, right)] {
+        corners.mark(
+            buffer,
+            CornerMark {
+                x,
+                y: row.y,
+                kind,
+                radius,
+                fill: fill.fill,
+                beneath: fill.beneath,
+            },
+        );
+    }
+}
+
+fn rounded_card(
+    buffer: &mut Buffer,
+    content: Rect,
+    fill: Fill,
+    radius: Radius,
+    corners: &mut Corners,
+) -> Rect {
     if content.is_empty() {
         return Rect::default();
     }
     if let Some(top) = content.y.checked_sub(1) {
         top_cap(buffer, content.x, top, content.width, fill);
+        round_cap(
+            buffer,
+            Rect::new(content.x, top, content.width, 1),
+            true,
+            fill,
+            radius,
+            corners,
+        );
     }
     clear(buffer, content, fill.fill);
     bottom_cap(buffer, content.x, content.bottom(), content.width, fill);
+    round_cap(
+        buffer,
+        Rect::new(content.x, content.bottom(), content.width, 1),
+        false,
+        fill,
+        radius,
+        corners,
+    );
     let top = content.y.saturating_sub(1);
     Rect::new(
         content.x,
@@ -109,36 +248,84 @@ pub(super) fn card(buffer: &mut Buffer, content: Rect, fill: Fill, _corners: Cor
     .intersection(buffer.area)
 }
 
+/// A card: `content` rows filled, with caps on the row above and the row below.
+/// Returns the full footprint including caps (the click target).
+pub(super) fn card(buffer: &mut Buffer, content: Rect, fill: Fill, corners: &mut Corners) -> Rect {
+    rounded_card(buffer, content, fill, Radius::Card, corners)
+}
+
 /// A panel spanning `outer`: caps on its first and last rows. The interior is
 /// left to the caller, since panel content covers it every frame anyway.
 /// Returns the interior (the rows between the caps).
-pub(super) fn panel(buffer: &mut Buffer, outer: Rect, fill: Fill, _corners: Corners) -> Rect {
+pub(super) fn panel(buffer: &mut Buffer, outer: Rect, fill: Fill, corners: &mut Corners) -> Rect {
     if outer.height < 3 || outer.width == 0 {
         return Rect::default();
     }
     top_cap(buffer, outer.x, outer.y, outer.width, fill);
+    round_cap(
+        buffer,
+        Rect::new(outer.x, outer.y, outer.width, 1),
+        true,
+        fill,
+        Radius::Panel,
+        corners,
+    );
     bottom_cap(buffer, outer.x, outer.bottom() - 1, outer.width, fill);
+    round_cap(
+        buffer,
+        Rect::new(outer.x, outer.bottom() - 1, outer.width, 1),
+        false,
+        fill,
+        Radius::Panel,
+        corners,
+    );
     Rect::new(outer.x, outer.y + 1, outer.width, outer.height - 2)
 }
 
+/// Columns and rows a floating surface's shadow reaches past its footprint.
+const SHADOW_MARGIN_COLUMNS: u16 = 3;
+const SHADOW_MARGIN_ROWS: u16 = 2;
+
+/// A floating surface (toast, popover): a card plus, in rounded mode, a soft
+/// shadow around it.
 // Toasts and popovers use this from phase 5.
 #[cfg_attr(not(test), allow(dead_code))]
-pub(super) fn floating(buffer: &mut Buffer, content: Rect, fill: Fill, corners: Corners) -> Rect {
-    card(buffer, content, fill, corners)
+pub(super) fn floating(
+    buffer: &mut Buffer,
+    content: Rect,
+    fill: Fill,
+    corners: &mut Corners,
+) -> Rect {
+    let footprint = card(buffer, content, fill, corners);
+    if corners.rounded && !footprint.is_empty() {
+        let left = footprint.x.saturating_sub(SHADOW_MARGIN_COLUMNS);
+        let top = footprint.y.saturating_sub(SHADOW_MARGIN_ROWS);
+        let area = Rect::new(
+            left,
+            top,
+            footprint.right() + SHADOW_MARGIN_COLUMNS - left,
+            footprint.bottom() + SHADOW_MARGIN_ROWS - top,
+        )
+        .intersection(buffer.area);
+        corners.shadows.push(ShadowMark {
+            area,
+            card: footprint,
+        });
+    }
+    footprint
 }
 
 /// A one-row pill: `label` with one column of padding on each side, filled
-/// with `style`'s background. Clipped at `right`. Returns the pill's rect.
-// Sidebar chips and buttons use this from phase 2.
-#[cfg_attr(not(test), allow(dead_code))]
+/// with `style`'s background, sitting on `beneath`. Clipped at `right`.
+/// Returns the pill's rect.
 pub(super) fn pill(
     buffer: &mut Buffer,
-    x: u16,
-    y: u16,
+    (x, y): (u16, u16),
     right: u16,
     label: &str,
     style: Style,
-    _corners: Corners,
+    beneath: Color,
+    corners: &mut Corners,
 ) -> Rect {
     let fill = style.bg.unwrap_or(Color::Reset);
     let label_width = super::render::display_width(label);
@@ -151,7 +338,37 @@ pub(super) fn pill(
     if rect.width > 2 {
         buffer.set_stringn(rect.x + 1, y, label, usize::from(rect.width - 2), style);
     }
+    round_pill_ends(buffer, rect, fill, beneath, corners);
     rect
+}
+
+/// Round both ends of an already-filled one-row pill.
+pub(super) fn round_pill_ends(
+    buffer: &mut Buffer,
+    rect: Rect,
+    fill: Color,
+    beneath: Color,
+    corners: &mut Corners,
+) {
+    if !corners.rounded || rect.width < 2 {
+        return;
+    }
+    for (x, kind) in [
+        (rect.x, CornerKind::PillLeft),
+        (rect.right() - 1, CornerKind::PillRight),
+    ] {
+        corners.mark(
+            buffer,
+            CornerMark {
+                x,
+                y: rect.y,
+                kind,
+                radius: Radius::Pill,
+                fill,
+                beneath,
+            },
+        );
+    }
 }
 
 #[cfg(test)]
@@ -172,7 +389,7 @@ mod tests {
             &mut buffer,
             Rect::new(2, 1, 4, 2),
             Fill::new(FILL, BENEATH),
-            Corners::Square,
+            &mut Corners::square(),
         );
 
         assert_eq!(footprint, Rect::new(2, 0, 4, 4));
@@ -197,7 +414,7 @@ mod tests {
             &mut buffer,
             Rect::new(0, 1, 8, 2),
             Fill::new(FILL, BENEATH),
-            Corners::Square,
+            &mut Corners::square(),
         );
         for cell in buffer.content() {
             assert!(!["▗", "▖", "▝", "▘"].contains(&cell.symbol()));
@@ -211,7 +428,7 @@ mod tests {
             &mut buffer,
             Rect::new(0, 0, 4, 1),
             Fill::new(FILL, BENEATH),
-            Corners::Square,
+            &mut Corners::square(),
         );
         assert_eq!(footprint, Rect::new(0, 0, 4, 2));
         assert_eq!(symbol(&buffer, 0, 1), "▀");
@@ -224,7 +441,7 @@ mod tests {
             &mut buffer,
             Rect::new(1, 0, 4, 6),
             Fill::new(FILL, BENEATH),
-            Corners::Square,
+            &mut Corners::square(),
         );
         assert_eq!(interior, Rect::new(1, 1, 4, 4));
         assert_eq!(symbol(&buffer, 1, 0), "▄");
@@ -239,7 +456,7 @@ mod tests {
             &mut buffer,
             content,
             Fill::new(FILL, BENEATH),
-            Corners::Square,
+            &mut Corners::square(),
         );
         assert_eq!(footprint, Rect::new(1, 0, 5, 5));
         assert_eq!(symbol(&buffer, 1, 0), "▄");
@@ -251,12 +468,12 @@ mod tests {
         let mut buffer = Buffer::empty(Rect::new(0, 0, 12, 1));
         let rect = pill(
             &mut buffer,
-            1,
-            0,
+            (1, 0),
             12,
             "spaces",
             Style::default().fg(Color::White).bg(FILL),
-            Corners::Square,
+            BENEATH,
+            &mut Corners::square(),
         );
         assert_eq!(rect, Rect::new(1, 0, 8, 1));
         assert_eq!(symbol(&buffer, 1, 0), " ");
@@ -271,12 +488,12 @@ mod tests {
         let mut buffer = Buffer::empty(Rect::new(0, 0, 6, 1));
         let rect = pill(
             &mut buffer,
-            2,
-            0,
+            (2, 0),
             6,
             "agents",
             Style::default().bg(FILL),
-            Corners::Square,
+            BENEATH,
+            &mut Corners::square(),
         );
         assert_eq!(rect, Rect::new(2, 0, 4, 1));
     }
@@ -290,5 +507,121 @@ mod tests {
         assert_eq!(buffer[(0, 0)].bg, FILL);
         assert_eq!(buffer[(1, 0)].bg, Color::Blue);
         assert_eq!(buffer[(2, 0)].bg, FILL);
+    }
+
+    #[test]
+    fn rounded_card_leaves_corner_cells_on_the_surface_beneath() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 10, 5));
+        let mut corners = Corners::rounded();
+        card(
+            &mut buffer,
+            Rect::new(2, 1, 4, 2),
+            Fill::new(FILL, BENEATH),
+            &mut corners,
+        );
+        let kinds = corners
+            .marks()
+            .iter()
+            .map(|mark| (mark.x, mark.y, mark.kind))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            kinds,
+            vec![
+                (2, 0, CornerKind::TopLeft),
+                (5, 0, CornerKind::TopRight),
+                (2, 3, CornerKind::BottomLeft),
+                (5, 3, CornerKind::BottomRight),
+            ]
+        );
+        for (x, y) in [(2, 0), (5, 0), (2, 3), (5, 3)] {
+            assert_eq!(symbol(&buffer, x, y), " ");
+            assert_eq!(buffer[(x, y)].bg, BENEATH);
+        }
+        assert_eq!(
+            symbol(&buffer, 3, 0),
+            "▄",
+            "inner cap cells keep their half blocks"
+        );
+        assert!(corners
+            .marks()
+            .iter()
+            .all(|mark| mark.radius == Radius::Card
+                && mark.fill == FILL
+                && mark.beneath == BENEATH));
+    }
+
+    #[test]
+    fn square_mode_records_no_marks() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 10, 5));
+        let mut corners = Corners::square();
+        card(
+            &mut buffer,
+            Rect::new(2, 1, 4, 2),
+            Fill::new(FILL, BENEATH),
+            &mut corners,
+        );
+        floating(
+            &mut buffer,
+            Rect::new(2, 1, 4, 2),
+            Fill::new(FILL, BENEATH),
+            &mut corners,
+        );
+        assert!(corners.marks().is_empty() && corners.shadows().is_empty());
+        assert_eq!(symbol(&buffer, 2, 0), "▄");
+    }
+
+    #[test]
+    fn rounded_pill_ends_keep_their_label() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 12, 1));
+        let mut corners = Corners::rounded();
+        let rect = pill(
+            &mut buffer,
+            (1, 0),
+            12,
+            "ab",
+            Style::default().bg(FILL),
+            BENEATH,
+            &mut corners,
+        );
+        assert_eq!(rect, Rect::new(1, 0, 4, 1));
+        assert_eq!(buffer[(1, 0)].bg, BENEATH);
+        assert_eq!(buffer[(4, 0)].bg, BENEATH);
+        assert_eq!(buffer[(2, 0)].bg, FILL);
+        assert_eq!(symbol(&buffer, 2, 0), "a");
+        let kinds = corners
+            .marks()
+            .iter()
+            .map(|mark| mark.kind)
+            .collect::<Vec<_>>();
+        assert_eq!(kinds, vec![CornerKind::PillLeft, CornerKind::PillRight]);
+    }
+
+    #[test]
+    fn rounded_panel_uses_the_panel_radius_and_floating_adds_a_shadow() {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 20, 12));
+        let mut corners = Corners::rounded();
+        panel(
+            &mut buffer,
+            Rect::new(0, 0, 20, 12),
+            Fill::new(FILL, BENEATH),
+            &mut corners,
+        );
+        assert!(corners
+            .marks()
+            .iter()
+            .all(|mark| mark.radius == Radius::Panel));
+        let footprint = floating(
+            &mut buffer,
+            Rect::new(6, 4, 6, 2),
+            Fill::new(FILL, BENEATH),
+            &mut corners,
+        );
+        assert_eq!(
+            corners.shadows(),
+            &[ShadowMark {
+                area: Rect::new(3, 1, 12, 8),
+                card: footprint,
+            }]
+        );
     }
 }

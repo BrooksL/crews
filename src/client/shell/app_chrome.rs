@@ -18,7 +18,12 @@ use crate::app::state::Palette;
 /// Only cells nothing else covers are painted, because this runs every frame:
 /// the sidebar is recolored in [`finish`] and pane content fills the panel
 /// below the tab row.
-pub(super) fn render_backdrop(buffer: &mut Buffer, layout: &ClientShellLayout, app: &AppTokens) {
+pub(super) fn render_backdrop(
+    buffer: &mut Buffer,
+    layout: &ClientShellLayout,
+    app: &AppTokens,
+    corners: &mut Corners,
+) {
     let area = buffer.area;
     let panel = layout.panel;
     if layout.sidebar.is_empty() {
@@ -52,7 +57,7 @@ pub(super) fn render_backdrop(buffer: &mut Buffer, layout: &ClientShellLayout, a
         buffer,
         panel,
         Fill::new(app.pane_bg, app.chrome_bg),
-        Corners::Square,
+        corners,
     );
     shape::fill_bg(buffer, layout.tab_bar, app.pane_bg);
     for y in layout.panel_padding_rows {
@@ -363,7 +368,7 @@ mod tests {
         for (cols, rows) in SIZES {
             let layout = config.layout(cols, rows, false, 1, 36);
             let mut buffer = Buffer::empty(Rect::new(0, 0, cols, rows));
-            render_backdrop(&mut buffer, &layout, &app);
+            render_backdrop(&mut buffer, &layout, &app, &mut Corners::square());
             // Stand-in for the classic sidebar: unset background and a divider.
             buffer[(35, 5)].set_symbol("│");
             finish(&mut buffer, &layout, palette, &app);
@@ -448,7 +453,7 @@ mod tests {
         let app = config.app_tokens().copied().unwrap();
         let layout = config.layout(177, 48, false, 1, 36);
         let mut buffer = Buffer::empty(Rect::new(0, 0, 177, 48));
-        render_backdrop(&mut buffer, &layout, &app);
+        render_backdrop(&mut buffer, &layout, &app, &mut Corners::square());
         for x in 36..176 {
             let hairline = &buffer[(x, 2)];
             assert_eq!(
@@ -599,7 +604,7 @@ mod tests {
             let mut samples = Vec::with_capacity(500);
             for _ in 0..500 {
                 let started = std::time::Instant::now();
-                render_backdrop(&mut buffer, &layout, &app);
+                render_backdrop(&mut buffer, &layout, &app, &mut Corners::square());
                 finish(&mut buffer, &layout, &config.palette, &app);
                 finish_status_bar(&mut buffer, layout.status_bar, &config.palette, &app);
                 std::hint::black_box(&buffer);

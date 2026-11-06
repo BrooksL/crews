@@ -237,6 +237,7 @@ impl ClientShellConfig {
         Self {
             style: config.ui.style,
             dim_unfocused: clamp_dim(config.ui.dim_unfocused),
+            corners: config.ui.corners,
             sidebar_width: app_style_sidebar_width(config),
             sidebar_min_width: config.ui.sidebar_min_width,
             sidebar_max_width: config.ui.sidebar_max_width,
@@ -467,6 +468,7 @@ impl ClientShellConfig {
                 diagnostics.extend(ui.sound.diagnostics());
                 self.style = ui.style;
                 self.dim_unfocused = clamp_dim(ui.dim_unfocused);
+                self.corners = ui.corners;
                 self.sidebar_width = app_style_sidebar_width(config);
                 self.sidebar_min_width = ui.sidebar_min_width;
                 self.sidebar_max_width = ui.sidebar_max_width;
