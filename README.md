@@ -1,5 +1,52 @@
 # herdr
 
+> **This is `crews`, Lee Brooks's personal fork of [herdr](https://github.com/herdrdev/herdr).** It adds an opt-in "polished shell" look (`ui.style = "app"`): layered surfaces, rounded cards, floating toasts and menus. Classic herdr is unchanged unless you opt in. The work lives on the [`polished-shell`](https://github.com/BrooksL/crews/tree/polished-shell) branch; see [the spec](docs/polished-shell/spec.md) and [progress](docs/polished-shell/progress.md). Not affiliated with or supported by the herdr maintainers.
+
+## crews: getting started
+
+You need Rust, [just](https://github.com/casey/just), and Zig **0.16.0** (herdr builds a vendored libghostty-vt with it).
+
+```bash
+git clone https://github.com/BrooksL/crews ~/dev/crews
+cd ~/dev/crews
+git switch polished-shell
+export ZIG=$HOME/.local/share/zig-0.16.0/zig   # wherever Zig 0.16.0 lives
+```
+
+Debug builds read their config from `~/.config/herdr-dev/config.toml` and run their own `herdr-dev` server, so they never touch an installed herdr. Turn on the polished shell there:
+
+```toml
+[ui]
+style = "app"          # "classic" is the default look
+corners = "auto"       # "rounded" | "square"; rounded needs kitty graphics (Ghostty, kitty)
+
+[theme]
+name = "crews"
+
+# Optional: keep "needs attention" toasts until you act on them
+[ui.toast.herdr]
+keep_needs_attention = true
+```
+
+Run it from a plain Ghostty tab (not inside another herdr):
+
+```bash
+env -u HERDR_SOCKET_PATH -u HERDR_CLIENT_SOCKET_PATH cargo run
+```
+
+`ctrl+b q` detaches. To stop the dev server (for example, after rebuilding so the server side picks up changes), run `env -u HERDR_SOCKET_PATH -u HERDR_CLIENT_SOCKET_PATH cargo run -- server stop`.
+
+Checks before committing:
+
+```bash
+just lint
+cargo nextest run --locked --no-fail-fast --retries 2   # full run; `just test` stops at the first failure
+just bench-render-scale                                  # when render loops change
+```
+
+Branches: `master` mirrors upstream herdr; `polished-shell` holds this work. Pull upstream changes with `git fetch upstream && git switch master && git merge --ff-only upstream/master`, then merge `master` into `polished-shell`. Pushing to upstream is disabled on purpose.
+
+
 
 <p align="center">
   <img src="assets/logo.png" alt="herdr" width="100" />
@@ -72,7 +119,7 @@ if you are an ai agent helping with this repository, read [`AGENTS.md`](./AGENTS
 ## development
 
 ```bash
-git clone https://github.com/herdrdev/herdr
+git clone https://github.com/herdrdev/herdr   # or this fork: https://github.com/BrooksL/crews
 cd herdr
 cargo build --release
 
