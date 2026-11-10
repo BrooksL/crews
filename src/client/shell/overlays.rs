@@ -42,12 +42,7 @@ pub(crate) fn render_client_overlay(
     k: &LiveKeybindConfig,
     p: &Palette,
 ) -> Option<OverlayRender> {
-    if !matches!(
-        o,
-        ClientShellOverlay::Navigator(_)
-            | ClientShellOverlay::ContextMenu(_)
-            | ClientShellOverlay::GlobalMenu(_)
-    ) {
+    if overlay_dims_backdrop(o) {
         for y in b.area.y..b.area.bottom() {
             for x in b.area.x..b.area.right() {
                 let c = &mut b[(x, y)];
@@ -55,6 +50,29 @@ pub(crate) fn render_client_overlay(
             }
         }
     }
+    render_client_overlay_body(b, o, s, endpoints, active_endpoint_id, k, p)
+}
+
+/// Whether an overlay fades what's behind it. Menus and the navigator don't.
+fn overlay_dims_backdrop(o: &ClientShellOverlay) -> bool {
+    !matches!(
+        o,
+        ClientShellOverlay::Navigator(_)
+            | ClientShellOverlay::ContextMenu(_)
+            | ClientShellOverlay::GlobalMenu(_)
+    )
+}
+
+/// Draw an overlay centered in `b.area`, without fading the backdrop.
+pub(crate) fn render_client_overlay_body(
+    b: &mut Buffer,
+    o: &ClientShellOverlay,
+    s: &ClientShellSnapshot,
+    endpoints: &[ClientShellEndpoint],
+    active_endpoint_id: &ClientEndpointId,
+    k: &LiveKeybindConfig,
+    p: &Palette,
+) -> Option<OverlayRender> {
     match o {
         ClientShellOverlay::Onboarding => render_onboarding_overlay(b, k, p),
         ClientShellOverlay::ProductAnnouncement(v) => render_product_announcement_overlay(b, v, p),

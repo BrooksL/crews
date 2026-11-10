@@ -45,6 +45,25 @@ impl ClientShellState {
         self.graphics.retire_direct_image(image_id);
     }
 
+    /// Tell the shell whether the attached terminal shows kitty images, for
+    /// `ui.corners = "auto"`.
+    pub(crate) fn set_host_shows_kitty_images(&mut self, shows: bool) {
+        self.host_shows_kitty_images = shows;
+    }
+
+    /// Whether app style draws rounded corners this frame.
+    pub(super) fn rounded_corners(&self) -> bool {
+        let cell = self.graphics_cell_size;
+        let cell_known = cell.width_px > 1 && cell.height_px > 1;
+        self.config.app_tokens().is_some()
+            && cell_known
+            && match self.config.corners {
+                crate::config::CornersConfig::Square => false,
+                crate::config::CornersConfig::Rounded => true,
+                crate::config::CornersConfig::Auto => self.host_shows_kitty_images,
+            }
+    }
+
     pub(crate) fn take_pending_graphics_cleanup(&mut self) -> Vec<u8> {
         self.graphics.take_pending_cleanup()
     }

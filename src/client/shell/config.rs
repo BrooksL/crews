@@ -56,6 +56,8 @@ impl ClientShellState {
             sidebar_collapsed: self
                 .sidebar_collapsed_manual
                 .then_some(self.sidebar_collapsed),
+            sidebar_spaces_visible: (!self.sidebar_spaces_visible).then_some(false),
+            sidebar_agents_visible: (!self.sidebar_agents_visible).then_some(false),
             agent_panel_sort: self
                 .agent_panel_sort_manual
                 .then_some(self.config.agent_panel_sort),
@@ -68,15 +70,36 @@ impl ClientShellState {
         }
     }
 
+    /// Show or hide one section of the app-style sidebar and remember it.
+    pub(super) fn toggle_sidebar_section(
+        &mut self,
+        section: SidebarSection,
+        outcome: &mut ClientShellInput,
+    ) {
+        match section {
+            SidebarSection::Spaces => {
+                self.sidebar_spaces_visible = !self.sidebar_spaces_visible;
+                self.workspace_scroll = 0;
+            }
+            SidebarSection::Agents => {
+                self.sidebar_agents_visible = !self.sidebar_agents_visible;
+                self.agent_scroll = 0;
+            }
+        }
+        outcome.repaint = true;
+        self.persist_chrome_preferences(outcome);
+    }
+
     pub(crate) fn reload_client_config(&mut self) {
         match crate::config::load_live_config() {
             Ok(loaded) => {
                 let agent_panel_sort = self.config.agent_panel_sort;
-                let diagnostics = self.config.apply_live_config(
+                let mut diagnostics = self.config.apply_live_config(
                     &loaded.config,
                     &loaded.diagnostics,
                     &loaded.invalid_sections,
                 );
+                diagnostics.extend(app_style_diagnostic(&loaded.config));
                 if let Some(appearance) = self.host_appearance {
                     self.config.palette = crate::app::client_palette_for_appearance(
                         &self.config.theme_runtime,
@@ -109,11 +132,113 @@ impl ClientShellState {
     }
 }
 
+/// Columns of panel fill on each side of app content.
+pub(super) const APP_PANEL_PADDING: u16 = 2;
+/// Smallest panel that app style lays out; anything smaller keeps classic.
+const APP_MIN_PANEL_WIDTH: u16 = 20;
+const APP_MIN_ROWS: u16 = 8;
+
+/// App-style window regions, or None when the window is too small for them.
+///
+/// The sidebar's last column is the left gutter (column 0 when the sidebar is
+/// hidden), column `cols - 1` is the right gutter, and the last row is the
+/// status bar. The panel's cap rows are its first and last rows. Row 1 is the
+/// header, rows 2 and `rows - 3` are padding, and pane content fills the rows
+/// between them, inset two columns from each side.
+fn app_layout(cols: u16, rows: u16, sidebar_width: u16) -> Option<ClientShellLayout> {
+    let panel_x = sidebar_width.max(1);
+    let panel_width = cols.checked_sub(panel_x + 1)?;
+    if rows < APP_MIN_ROWS || panel_width < APP_MIN_PANEL_WIDTH {
+        return None;
+    }
+    let panel = Rect::new(panel_x, 0, panel_width, rows - 1);
+    Some(ClientShellLayout {
+        sidebar: Rect::new(0, 0, sidebar_width, rows - 1),
+        tab_bar: Rect::new(panel_x, 1, panel_width, 1),
+        mobile_header: Rect::default(),
+        pane_surface: Rect::new(
+            panel_x + APP_PANEL_PADDING,
+            3,
+            panel_width - 2 * APP_PANEL_PADDING,
+            rows - 6,
+        ),
+        panel,
+        status_bar: Rect::new(1, rows - 1, cols - 2, 1),
+        panel_padding_rows: [2, rows - 3],
+    })
+}
+
+/// Sidebar width for app style when the user kept the default: the polished
+/// sidebar is laid out for 36 columns. Explicit widths and classic are untouched.
+fn app_style_sidebar_width(config: &Config) -> u16 {
+    let ui = &config.ui;
+    let default_width = Config::default().ui.sidebar_width;
+    if ui.style == crate::config::UiStyleConfig::App && ui.sidebar_width == default_width {
+        APP_STYLE_SIDEBAR_WIDTH.min(ui.sidebar_max_width.max(ui.sidebar_min_width))
+    } else {
+        ui.sidebar_width
+    }
+}
+
+pub(super) const APP_STYLE_SIDEBAR_WIDTH: u16 = 36;
+
+fn clamp_dim(value: f32) -> f32 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
+/// Warn when `ui.style = "app"` can't apply because a selected theme has no
+/// polished-shell colors (light and ANSI-only themes keep the classic look).
+pub(crate) fn app_style_diagnostic(config: &Config) -> Option<String> {
+    if config.ui.style != crate::config::UiStyleConfig::App {
+        return None;
+    }
+    let runtime = crate::app::client_theme_runtime_from_config(config);
+    let names = if runtime.auto_switch {
+        vec![runtime.dark_name.clone(), runtime.light_name.clone()]
+    } else {
+        vec![runtime.manual_name.clone()]
+    };
+    let classic = names
+        .into_iter()
+        .filter(|name| {
+            crate::app::client_palette_for_theme(&runtime, name)
+                .app
+                .is_none()
+        })
+        .collect::<Vec<_>>();
+    (!classic.is_empty()).then(|| {
+        format!(
+            "ui.style = \"app\" needs a dark theme; {} keeps the classic look",
+            classic
+                .iter()
+                .map(|name| format!("{name:?}"))
+                .collect::<Vec<_>>()
+                .join(" and ")
+        )
+    })
+}
+
+impl ClientShellConfig {
+    /// Polished-shell colors when app style is on and the current theme supports it.
+    pub(super) fn app_tokens(&self) -> Option<&crate::app::app_tokens::AppTokens> {
+        (self.style == crate::config::UiStyleConfig::App)
+            .then_some(self.palette.app.as_ref())
+            .flatten()
+    }
+}
+
 impl ClientShellConfig {
     pub(crate) fn from_config(config: &Config) -> Self {
         let theme_runtime = crate::app::client_theme_runtime_from_config(config);
         Self {
-            sidebar_width: config.ui.sidebar_width,
+            style: config.ui.style,
+            dim_unfocused: clamp_dim(config.ui.dim_unfocused),
+            corners: config.ui.corners,
+            sidebar_width: app_style_sidebar_width(config),
             sidebar_min_width: config.ui.sidebar_min_width,
             sidebar_max_width: config.ui.sidebar_max_width,
             sidebar_start_collapsed: config.ui.sidebar_start_collapsed,
@@ -129,6 +254,7 @@ impl ClientShellConfig {
             toast_delivery: config.ui.toast.delivery,
             toast_delay_seconds: config.ui.toast.delay_seconds,
             toast_position: config.ui.toast.herdr.position,
+            toast_keep_needs_attention: config.ui.toast.herdr.keep_needs_attention,
             copy_on_select: config.ui.copy_on_select,
             clipboard_toast_enabled: config.ui.toast.clipboard.enabled,
             clipboard_toast_position: config.ui.toast.clipboard.position,
@@ -341,7 +467,10 @@ impl ClientShellConfig {
             } else {
                 let ui = &config.ui;
                 diagnostics.extend(ui.sound.diagnostics());
-                self.sidebar_width = ui.sidebar_width;
+                self.style = ui.style;
+                self.dim_unfocused = clamp_dim(ui.dim_unfocused);
+                self.corners = ui.corners;
+                self.sidebar_width = app_style_sidebar_width(config);
                 self.sidebar_min_width = ui.sidebar_min_width;
                 self.sidebar_max_width = ui.sidebar_max_width;
                 self.sidebar_collapsed_mode = ui.sidebar_collapsed_mode;
@@ -356,6 +485,7 @@ impl ClientShellConfig {
                 self.toast_delivery = ui.toast.delivery;
                 self.toast_delay_seconds = ui.toast.delay_seconds;
                 self.toast_position = ui.toast.herdr.position;
+                self.toast_keep_needs_attention = ui.toast.herdr.keep_needs_attention;
                 self.copy_on_select = ui.copy_on_select;
                 self.clipboard_toast_enabled = ui.toast.clipboard.enabled;
                 self.clipboard_toast_position = ui.toast.clipboard.position;
@@ -397,6 +527,9 @@ impl ClientShellConfig {
                 tab_bar: Rect::default(),
                 mobile_header: Rect::new(0, 0, cols, header_height),
                 pane_surface: Rect::new(0, header_height, cols, rows.saturating_sub(header_height)),
+                panel: Rect::default(),
+                status_bar: Rect::default(),
+                panel_padding_rows: [0, 0],
             };
         }
 
@@ -414,6 +547,11 @@ impl ClientShellConfig {
             sidebar_width.clamp(min, max)
         }
         .min(cols.saturating_sub(1));
+        if self.app_tokens().is_some() {
+            if let Some(layout) = app_layout(cols, rows, sidebar_width) {
+                return layout;
+            }
+        }
         let main = Rect::new(sidebar_width, 0, cols.saturating_sub(sidebar_width), rows);
         let show_tab_bar = rows > 1 && !(self.hide_tab_bar_when_single_tab && tab_count == 1);
         let tab_height = u16::from(show_tab_bar);
@@ -443,6 +581,9 @@ impl ClientShellConfig {
             tab_bar,
             mobile_header: Rect::default(),
             pane_surface,
+            panel: Rect::default(),
+            status_bar: Rect::default(),
+            panel_padding_rows: [0, 0],
         }
     }
 

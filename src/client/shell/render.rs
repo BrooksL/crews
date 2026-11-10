@@ -5,11 +5,14 @@ mod overlays;
 #[path = "../shell/sidebar.rs"]
 pub(in crate::client::shell) mod sidebar;
 #[path = "../shell/tabs.rs"]
-mod tabs;
+pub(in crate::client::shell) mod tabs;
 
 pub(super) use super::agent_sidebar::{ordered_agent_pane_ids, render_agent_panel};
 pub(super) use super::aggregate_navigation::navigator_rows as client_navigator_rows;
-pub(super) use overlays::{render_client_overlay, render_context_menu, render_global_menu};
+pub(super) use overlays::{
+    render_client_overlay, render_client_overlay_body, render_context_menu, render_global_menu,
+    OverlayRender,
+};
 pub(super) use sidebar::{render_collapsed_sidebar, render_sidebar, workspace_entries};
 pub(super) use tabs::{render_tab_bar, tab_bar_status_width};
 
@@ -243,6 +246,11 @@ pub(super) struct ShellRenderState<'a> {
     pub(super) reveal_focused_tab: &'a mut bool,
     pub(super) sidebar_collapsed: bool,
     pub(super) sidebar_section_split: f32,
+    pub(super) sidebar_section_split_manual: bool,
+    pub(super) sidebar_spaces_visible: bool,
+    pub(super) sidebar_agents_visible: bool,
+    /// Rounded-mode corner marks collected while drawing.
+    pub(super) corners: &'a mut super::shape::Corners,
     pub(super) tab_drag_insert_index: Option<usize>,
     pub(super) selected_workspace_id: Option<&'a WorkspaceNavigationTarget>,
     pub(super) reveal_navigation_workspace: &'a mut bool,
@@ -258,6 +266,13 @@ pub(super) fn render_shell(
     mut state: ShellRenderState<'_>,
 ) -> ShellHitMap {
     let mut hits = ShellHitMap::default();
+    let app = config
+        .app_tokens()
+        .filter(|_| !layout.panel.is_empty())
+        .copied();
+    if let Some(app) = app.as_ref() {
+        super::app_chrome::render_backdrop(buffer, &layout, app, state.corners);
+    }
     if layout.mobile_header.height > 0 {
         super::mobile::render_mobile_header(
             buffer,
@@ -299,17 +314,45 @@ pub(super) fn render_shell(
                 &mut hits,
             );
         } else {
-            render_sidebar(
-                buffer,
-                layout.sidebar,
-                snapshot,
-                config,
-                &mut state,
-                &mut hits,
-            );
+            let drew_app_sidebar = app.as_ref().is_some_and(|app| {
+                super::app_sidebar::render_app_sidebar(
+                    buffer,
+                    layout.sidebar,
+                    snapshot,
+                    config,
+                    &mut state,
+                    &mut hits,
+                    app,
+                )
+            });
+            if !drew_app_sidebar {
+                render_sidebar(
+                    buffer,
+                    layout.sidebar,
+                    snapshot,
+                    config,
+                    &mut state,
+                    &mut hits,
+                );
+            }
         }
     }
-    if layout.tab_bar.height > 0 {
+    if let Some(app) = app.as_ref().filter(|_| layout.tab_bar.height > 0) {
+        super::app_header::render_app_header(
+            buffer,
+            layout.tab_bar,
+            snapshot,
+            config,
+            super::app_header::HeaderState {
+                tab_scroll: state.tab_scroll,
+                reveal_focused_tab: state.reveal_focused_tab,
+                tab_drag_insert_index: state.tab_drag_insert_index,
+                corners: state.corners,
+            },
+            &mut hits,
+            app,
+        );
+    } else if layout.tab_bar.height > 0 {
         render_tab_bar(
             buffer,
             layout.tab_bar,
@@ -320,6 +363,9 @@ pub(super) fn render_shell(
             state.tab_drag_insert_index,
             &mut hits,
         );
+    }
+    if let Some(app) = app.as_ref() {
+        super::app_chrome::finish(buffer, &layout, &config.palette, app);
     }
     if !config.mouse_capture {
         hits.sidebar_divider = Rect::default();
@@ -336,6 +382,11 @@ pub(super) fn render_shell(
         hits.tab_scroll_right = Rect::default();
         hits.new_tab = Rect::default();
         hits.pane_splits.clear();
+        hits.header_split = Rect::default();
+        hits.header_zoom = Rect::default();
+        hits.header_more = Rect::default();
+        hits.sidebar_spaces_chip = Rect::default();
+        hits.sidebar_agents_chip = Rect::default();
     }
     hits
 }

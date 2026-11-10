@@ -13,6 +13,10 @@ pub(crate) enum ClientShellKeybindingSource {
 }
 
 pub(crate) struct ClientShellConfig {
+    pub(super) style: crate::config::UiStyleConfig,
+    /// App style: unfocused split pane fade, 0.0 (off) to 1.0.
+    pub(super) dim_unfocused: f32,
+    pub(super) corners: crate::config::CornersConfig,
     pub(super) sidebar_width: u16,
     pub(super) sidebar_min_width: u16,
     pub(super) sidebar_max_width: u16,
@@ -29,6 +33,7 @@ pub(crate) struct ClientShellConfig {
     pub(super) toast_delivery: crate::config::ToastDelivery,
     pub(super) toast_delay_seconds: u64,
     pub(super) toast_position: crate::config::ToastHerdrPosition,
+    pub(super) toast_keep_needs_attention: bool,
     pub(super) copy_on_select: bool,
     pub(super) clipboard_toast_enabled: bool,
     pub(super) clipboard_toast_position: crate::config::ToastClipboardPosition,
@@ -59,6 +64,19 @@ pub(super) struct ClientShellLayout {
     pub tab_bar: Rect,
     pub mobile_header: Rect,
     pub pane_surface: Rect,
+    /// App style: the pane panel, cap rows included. Empty in classic.
+    pub panel: Rect,
+    /// App style: the status bar row. Empty in classic.
+    pub status_bar: Rect,
+    /// App style: rows between the header and content, and above the bottom cap.
+    pub panel_padding_rows: [u16; 2],
+}
+
+/// A section of the app-style sidebar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SidebarSection {
+    Spaces,
+    Agents,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,6 +97,18 @@ pub(super) enum ClientMobileTarget {
         pane_id: String,
     },
     Menu(usize),
+}
+
+/// App style: one stacked toast card. `index` points into
+/// `ClientShellState::visible_notifications` as of the last compose.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) struct AppToastHit {
+    pub(super) index: usize,
+    /// The card's footprint, caps included.
+    pub(super) card: Rect,
+    /// The `open` pill; empty when the toast has no pane to open.
+    pub(super) open: Rect,
+    pub(super) dismiss: Rect,
 }
 
 #[derive(Default)]
@@ -103,6 +133,13 @@ pub(super) struct ShellHitMap {
     pub(super) sidebar_divider: Rect,
     pub(super) sidebar_section_divider: Rect,
     pub(super) sidebar_toggle: Rect,
+    /// App style: the `spaces` and `agents` section chips.
+    pub(super) sidebar_spaces_chip: Rect,
+    pub(super) sidebar_agents_chip: Rect,
+    /// App style: header icon buttons.
+    pub(super) header_split: Rect,
+    pub(super) header_zoom: Rect,
+    pub(super) header_more: Rect,
     pub(super) new_workspace: Rect,
     pub(super) new_tab: Rect,
     pub(super) tab_scroll_left: Rect,
@@ -112,7 +149,10 @@ pub(super) struct ShellHitMap {
     pub(super) mobile_targets: Vec<(Rect, ClientMobileTarget)>,
     pub(super) mobile_max_scroll: usize,
     pub(super) global_launcher: Rect,
+    /// The visible toast's footprint; in app style the union of the stacked cards.
     pub(super) notification_toast: Rect,
+    /// App style: each stacked toast card and its buttons.
+    pub(super) notification_cards: Vec<AppToastHit>,
     pub(super) global_menu_rows: Vec<(Rect, usize)>,
     pub(super) context_menu_rows: Vec<(Rect, usize)>,
     pub(super) overlay_primary: Rect,
@@ -868,6 +908,10 @@ pub(crate) struct ClientShellState {
     pub(super) pending_pane_surface: Option<PaneSurfaceFrame>,
     pub(super) graphics: crate::kitty_graphics::surface::ClientState,
     pub(super) graphics_cell_size: crate::kitty_graphics::HostCellSize,
+    /// App style rounded corners: image cache and live placements.
+    pub(super) chrome_graphics: super::chrome_graphics::ChromeGraphics,
+    /// Whether the attached terminal is known to show kitty images under text.
+    pub(super) host_shows_kitty_images: bool,
     pub(super) popup_terminal_id: Option<String>,
     pub(super) sidebar_collapsed: bool,
     pub(super) sidebar_collapsed_manual: bool,
@@ -875,6 +919,9 @@ pub(crate) struct ClientShellState {
     pub(super) sidebar_width_manual: bool,
     pub(super) sidebar_section_split: f32,
     pub(super) sidebar_section_split_manual: bool,
+    /// App-style sidebar section visibility (the `spaces` and `agents` chips).
+    pub(super) sidebar_spaces_visible: bool,
+    pub(super) sidebar_agents_visible: bool,
     pub(super) agent_panel_sort_manual: bool,
     pub(super) last_sidebar_divider_click: Option<std::time::Instant>,
     pub(super) chrome_drag: Option<ClientChromeDrag>,
@@ -944,7 +991,9 @@ pub(crate) struct ClientShellState {
     pub(super) pending_requests: HashMap<String, PendingEndpointRequest>,
     pub(super) pending_integration_installs: usize,
     pub(super) pending_notifications: Vec<ClientPendingNotification>,
-    pub(super) visible_notification: Option<ClientVisibleNotification>,
+    /// Visible toasts, oldest first. Classic shows at most one; app style stacks up to
+    /// `MAX_STACKED_NOTIFICATIONS`.
+    pub(super) visible_notifications: Vec<ClientVisibleNotification>,
     pub(super) queued_notifications: VecDeque<ClientVisibleNotification>,
     pub(super) endpoint_notice_seen: HashSet<ClientEndpointNoticeKey>,
     pub(super) visible_endpoint_notice: Option<ClientVisibleEndpointNotice>,
@@ -1042,6 +1091,8 @@ impl ClientShellState {
                 width_px: 1,
                 height_px: 1,
             },
+            chrome_graphics: Default::default(),
+            host_shows_kitty_images: false,
             popup_terminal_id: None,
             sidebar_collapsed,
             sidebar_collapsed_manual: preferences.sidebar_collapsed.is_some(),
@@ -1049,6 +1100,8 @@ impl ClientShellState {
             sidebar_width_manual: preferences.sidebar_width.is_some(),
             sidebar_section_split,
             sidebar_section_split_manual: preferences.sidebar_section_split.is_some(),
+            sidebar_spaces_visible: preferences.sidebar_spaces_visible.unwrap_or(true),
+            sidebar_agents_visible: preferences.sidebar_agents_visible.unwrap_or(true),
             agent_panel_sort_manual: preferences.agent_panel_sort.is_some(),
             last_sidebar_divider_click: None,
             chrome_drag: None,
@@ -1112,7 +1165,7 @@ impl ClientShellState {
             pending_requests: HashMap::new(),
             pending_integration_installs: 0,
             pending_notifications: Vec::new(),
-            visible_notification: None,
+            visible_notifications: Vec::new(),
             queued_notifications: VecDeque::new(),
             endpoint_notice_seen: HashSet::new(),
             visible_endpoint_notice: None,

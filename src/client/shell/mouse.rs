@@ -1007,9 +1007,30 @@ impl ClientShellState {
         }
         if self.overlay.is_none()
             && self.mode == ClientShellMode::Terminal
+            && mouse.kind == MouseEventKind::Down(MouseButton::Left)
+        {
+            if let Some(card) = self
+                .hits
+                .notification_cards
+                .iter()
+                .find(|card| super::contains(card.card, point))
+                .copied()
+            {
+                // App-style toast: open or dismiss; the rest of the card is inert.
+                if super::contains(card.open, point) {
+                    self.focus_visible_notification_at(card.index, outcome);
+                } else if super::contains(card.dismiss, point) {
+                    self.dismiss_visible_notification(card.index, outcome);
+                }
+                return;
+            }
+        }
+        if self.overlay.is_none()
+            && self.mode == ClientShellMode::Terminal
+            && self.hits.notification_cards.is_empty()
             && self
-                .visible_notification
-                .as_ref()
+                .visible_notifications
+                .first()
                 .is_some_and(|notification| notification.event.pane_id.is_some())
             && mouse.kind == MouseEventKind::Down(MouseButton::Left)
             && super::contains(self.hits.notification_toast, point)
@@ -1950,6 +1971,14 @@ impl ClientShellState {
                     self.persist_chrome_preferences(outcome);
                     return;
                 }
+                if super::contains(self.hits.sidebar_spaces_chip, point) {
+                    self.toggle_sidebar_section(SidebarSection::Spaces, outcome);
+                    return;
+                }
+                if super::contains(self.hits.sidebar_agents_chip, point) {
+                    self.toggle_sidebar_section(SidebarSection::Agents, outcome);
+                    return;
+                }
                 if super::contains(self.hits.sidebar_divider, point) {
                     let now = std::time::Instant::now();
                     let double_click = self.last_sidebar_divider_click.is_some_and(|last| {
@@ -2053,6 +2082,40 @@ impl ClientShellState {
                         ),
                         outcome,
                     );
+                    return;
+                }
+                if super::contains(self.hits.header_split, point) {
+                    self.record_binding(
+                        crate::input::KeybindMatch::Action(
+                            crate::input::KeybindAction::SplitVertical,
+                        ),
+                        outcome,
+                    );
+                    return;
+                }
+                if super::contains(self.hits.header_zoom, point) {
+                    self.record_binding(
+                        crate::input::KeybindMatch::Action(crate::input::KeybindAction::Zoom),
+                        outcome,
+                    );
+                    return;
+                }
+                if super::contains(self.hits.header_more, point) {
+                    let pane_id = self
+                        .snapshot
+                        .as_deref()
+                        .and_then(|snapshot| snapshot.focused_pane_id.clone());
+                    if let Some(pane_id) = pane_id {
+                        let button = self.hits.header_more;
+                        self.open_pane_context_menu(pane_id, button.x, button.bottom());
+                        // Right-align the popover with the button.
+                        if let Some(ClientShellOverlay::ContextMenu(menu)) = self.overlay.as_mut() {
+                            menu.x = button
+                                .right()
+                                .saturating_sub(super::app_popover::context_menu_width(menu));
+                        }
+                        outcome.repaint = true;
+                    }
                     return;
                 }
                 if super::contains(self.hits.new_tab, point) {

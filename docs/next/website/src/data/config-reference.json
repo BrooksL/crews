@@ -179,6 +179,114 @@
           "description": "Override the peach color token on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
         },
         {
+          "key": "theme.custom.chrome_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the chrome_bg token, used for window behind the panel: sidebar, gutters, status bar, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.pane_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the pane_bg token, used for panel fill; set it to your terminal background so pane content blends in, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.card_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the card_bg token, used for cards, off chips, and pills, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.card_hover_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the card_hover_bg token, used for cards and buttons under the mouse, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.card_focus_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the card_focus_bg token, used for the focused space card and active tab, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.segment_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the segment_bg token, used for the track behind the tabs, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.hairline",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the hairline token, used for the line under the panel header, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.rule",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the rule token, used for rules beside sidebar section headings, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.float_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the float_bg token, used for toasts and popovers, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.float_hover_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the float_hover_bg token, used for the hovered popover row, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.float_divider",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the float_divider token, used for dividers inside popovers, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.scrim",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the scrim token, used for the dimming behind an open menu, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.text_strong",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the text_strong token, used for focused names and the header title, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.text_secondary",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the text_secondary token, used for inactive tabs, off chips, and icon buttons, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.text_muted",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the text_muted token, used for secondary names in cards, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.label",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the label token, used for section headings, key hints, and the session name, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.toast_body",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the toast_body token, used for toast body text, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.accent_fg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the accent_fg token, used for text drawn on accent fills, on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
           "key": "theme.custom.light.accent",
           "type": "color",
           "default": "unset",
@@ -293,6 +401,114 @@
           "description": "Override the peach color token when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
         },
         {
+          "key": "theme.custom.light.chrome_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the chrome_bg token, used for window behind the panel: sidebar, gutters, status bar, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.pane_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the pane_bg token, used for panel fill; set it to your terminal background so pane content blends in, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.card_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the card_bg token, used for cards, off chips, and pills, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.card_hover_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the card_hover_bg token, used for cards and buttons under the mouse, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.card_focus_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the card_focus_bg token, used for the focused space card and active tab, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.segment_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the segment_bg token, used for the track behind the tabs, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.hairline",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the hairline token, used for the line under the panel header, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.rule",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the rule token, used for rules beside sidebar section headings, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.float_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the float_bg token, used for toasts and popovers, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.float_hover_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the float_hover_bg token, used for the hovered popover row, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.float_divider",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the float_divider token, used for dividers inside popovers, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.scrim",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the scrim token, used for the dimming behind an open menu, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.text_strong",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the text_strong token, used for focused names and the header title, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.text_secondary",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the text_secondary token, used for inactive tabs, off chips, and icon buttons, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.text_muted",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the text_muted token, used for secondary names in cards, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.label",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the label token, used for section headings, key hints, and the session name, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.toast_body",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the toast_body token, used for toast body text, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.light.accent_fg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the accent_fg token, used for text drawn on accent fills, when auto_switch selects a light appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
           "key": "theme.custom.dark.accent",
           "type": "color",
           "default": "unset",
@@ -405,6 +621,114 @@
           "type": "color",
           "default": "unset",
           "description": "Override the peach color token when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.chrome_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the chrome_bg token, used for window behind the panel: sidebar, gutters, status bar, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.pane_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the pane_bg token, used for panel fill; set it to your terminal background so pane content blends in, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.card_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the card_bg token, used for cards, off chips, and pills, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.card_hover_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the card_hover_bg token, used for cards and buttons under the mouse, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.card_focus_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the card_focus_bg token, used for the focused space card and active tab, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.segment_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the segment_bg token, used for the track behind the tabs, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.hairline",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the hairline token, used for the line under the panel header, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.rule",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the rule token, used for rules beside sidebar section headings, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.float_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the float_bg token, used for toasts and popovers, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.float_hover_bg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the float_hover_bg token, used for the hovered popover row, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.float_divider",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the float_divider token, used for dividers inside popovers, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.scrim",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the scrim token, used for the dimming behind an open menu, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.text_strong",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the text_strong token, used for focused names and the header title, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.text_secondary",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the text_secondary token, used for inactive tabs, off chips, and icon buttons, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.text_muted",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the text_muted token, used for secondary names in cards, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.label",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the label token, used for section headings, key hints, and the session name, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.toast_body",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the toast_body token, used for toast body text, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
+          "key": "theme.custom.dark.accent_fg",
+          "type": "color",
+          "default": "derived",
+          "description": "App style (`ui.style = \"app\"`): override the accent_fg token, used for text drawn on accent fills, when auto_switch selects a dark appearance. Applied after theme.custom. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
         }
       ]
     },
@@ -842,6 +1166,18 @@
           "description": "Toggle sidebar collapse."
         },
         {
+          "key": "keys.toggle_sidebar_spaces",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Show or hide the spaces section of the app-style sidebar (`ui.style = \"app\"`). Unset by default."
+        },
+        {
+          "key": "keys.toggle_sidebar_agents",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Show or hide the agents section of the app-style sidebar (`ui.style = \"app\"`). Unset by default."
+        },
+        {
           "key": "keys.indexed.tabs",
           "type": "string",
           "default": "unset",
@@ -865,6 +1201,33 @@
       "id": "ui",
       "title": "UI and sidebar",
       "keys": [
+        {
+          "key": "ui.style",
+          "type": "enum",
+          "default": "\"classic\"",
+          "description": "Overall look. \"classic\" keeps today's shell; \"app\" draws a polished shell with a panel, cards, and a status bar. App style needs a dark theme; light and terminal themes keep the classic look. App style also turns pane borders off and keeps gaps between split panes, drawn as gutters.",
+          "values": [
+            "classic",
+            "app"
+          ]
+        },
+        {
+          "key": "ui.dim_unfocused",
+          "type": "number",
+          "default": "0.0",
+          "description": "App style only: how far unfocused split panes fade toward their background, from 0.0 (off) to 1.0."
+        },
+        {
+          "key": "ui.corners",
+          "type": "enum",
+          "default": "\"auto\"",
+          "values": [
+            "auto",
+            "rounded",
+            "square"
+          ],
+          "description": "App style only: rounded corners drawn with kitty images. \"auto\" turns them on when the terminal is Ghostty, kitty, or WezTerm and the cell size in pixels is known; \"rounded\" forces them; \"square\" never uses images."
+        },
         {
           "key": "ui.sidebar_width",
           "type": "integer",
@@ -1131,6 +1494,12 @@
             "bottom-left",
             "bottom-right"
           ]
+        },
+        {
+          "key": "ui.toast.herdr.keep_needs_attention",
+          "type": "boolean",
+          "default": "false",
+          "description": "Keep needs-attention toasts on screen until you open or dismiss them, run the open-notification keybind, or a newer event for the same pane replaces them. Other toasts still go away on their own."
         },
         {
           "key": "ui.toast.clipboard.enabled",

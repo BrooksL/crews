@@ -110,6 +110,28 @@ enum LegacyAgentPanelScopeConfig {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
+pub enum CornersConfig {
+    /// Rounded when the terminal can show kitty images (Ghostty, kitty, WezTerm).
+    #[default]
+    Auto,
+    /// Always draw rounded corners when the cell size in pixels is known.
+    Rounded,
+    /// Never use images; corners are square half blocks.
+    Square,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum UiStyleConfig {
+    /// Today's look.
+    #[default]
+    Classic,
+    /// Polished shell: chrome, a rounded pane panel, cards, and a status bar.
+    App,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[serde(rename_all = "lowercase")]
 pub enum StatusIndicatorStyle {
     #[default]
     Dots,
@@ -207,6 +229,9 @@ pub struct ToastConfig {
 #[serde(default)]
 pub struct HerdrToastConfig {
     pub position: ToastHerdrPosition,
+    /// Keep needs-attention toasts until they are opened, dismissed, or replaced by a
+    /// newer event for the same pane. Default: false.
+    pub keep_needs_attention: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -455,6 +480,10 @@ pub struct KeysConfig {
     pub resize_pane_right: BindingConfig,
     /// Toggle sidebar collapse. Default: "prefix+b"
     pub toggle_sidebar: BindingConfig,
+    /// Show or hide the spaces section of the app-style sidebar. Unset by default.
+    pub toggle_sidebar_spaces: BindingConfig,
+    /// Show or hide the agents section of the app-style sidebar. Unset by default.
+    pub toggle_sidebar_agents: BindingConfig,
     /// Optional indexed shortcuts expanded over number keys 1-9.
     pub indexed: IndexedKeysConfig,
     /// Prefix-mode custom command bindings.
@@ -592,6 +621,10 @@ pub(crate) struct KeysConfigOverlay {
     #[serde(skip_serializing_if = "Option::is_none")]
     toggle_sidebar: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    toggle_sidebar_spaces: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    toggle_sidebar_agents: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     indexed: Option<IndexedKeysConfig>,
     #[serde(skip_serializing)]
     command: Option<Vec<CommandKeybindConfig>>,
@@ -703,6 +736,8 @@ impl<'de> Deserialize<'de> for KeysConfig {
         apply_field!(resize_pane_up);
         apply_field!(resize_pane_right);
         apply_field!(toggle_sidebar);
+        apply_field!(toggle_sidebar_spaces);
+        apply_field!(toggle_sidebar_agents);
         apply_field!(indexed);
         apply_field!(command);
 
@@ -808,6 +843,8 @@ impl KeysConfig {
         copy_effective_action_field!(resize_pane_up, keybinds.resize_pane_up);
         copy_effective_action_field!(resize_pane_right, keybinds.resize_pane_right);
         copy_effective_action_field!(toggle_sidebar, keybinds.toggle_sidebar);
+        copy_effective_action_field!(toggle_sidebar_spaces, keybinds.toggle_sidebar_spaces);
+        copy_effective_action_field!(toggle_sidebar_agents, keybinds.toggle_sidebar_agents);
         copy_user_field!(indexed);
 
         profile
@@ -937,6 +974,9 @@ impl<'de> Deserialize<'de> for PaneBordersConfig {
 #[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct UiConfig {
+    /// Overall look. "classic" keeps today's shell; "app" turns on the polished shell
+    /// (dark themes only). Default: "classic".
+    pub style: UiStyleConfig,
     pub sidebar_width: u16,
     /// Minimum sidebar width (columns) when expanded. Default: 18.
     pub sidebar_min_width: u16,
@@ -978,6 +1018,11 @@ pub struct UiConfig {
     pub pane_scrollbars: bool,
     /// Keep split panes visually separated instead of sharing divider borders. Default: true.
     pub pane_gaps: bool,
+    /// App style: how far unfocused split panes fade, from 0.0 (off) to 1.0. Default: 0.0.
+    pub dim_unfocused: f32,
+    /// App style: rounded corners drawn with kitty images. "auto", "rounded", or "square".
+    /// Default: "auto".
+    pub corners: CornersConfig,
     /// Show agent labels in split pane borders when no manual pane label is set. Default: false.
     pub show_agent_labels_on_pane_borders: bool,
     /// Hide the tab row when the workspace has one tab. Default: false.
@@ -1180,6 +1225,8 @@ impl Default for KeysConfig {
             resize_pane_up: BindingConfig::empty(),
             resize_pane_right: BindingConfig::empty(),
             toggle_sidebar: BindingConfig::one("prefix+b"),
+            toggle_sidebar_spaces: BindingConfig::empty(),
+            toggle_sidebar_agents: BindingConfig::empty(),
             indexed: IndexedKeysConfig::default(),
             command: Vec::new(),
             user_fields: BTreeSet::new(),
@@ -1195,9 +1242,29 @@ impl Default for WorktreesConfig {
     }
 }
 
+impl UiConfig {
+    /// Pane borders the server draws. App style shows each split pane as its
+    /// own panel with gutters between them, so it turns borders off.
+    pub fn effective_pane_borders(&self) -> PaneBordersConfig {
+        match self.style {
+            UiStyleConfig::App => PaneBordersConfig::Off,
+            UiStyleConfig::Classic => self.pane_borders,
+        }
+    }
+
+    /// Whether split panes keep a one-cell gap. Always on in app style; the
+    /// client paints the gap as a chrome gutter.
+    pub fn effective_pane_gaps(&self) -> bool {
+        self.style == UiStyleConfig::App || self.pane_gaps
+    }
+}
+
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
+            style: UiStyleConfig::Classic,
+            dim_unfocused: 0.0,
+            corners: CornersConfig::Auto,
             sidebar_width: 26,
             sidebar_min_width: 18,
             sidebar_max_width: 36,
@@ -1261,6 +1328,7 @@ impl Default for HerdrToastConfig {
     fn default() -> Self {
         Self {
             position: ToastHerdrPosition::BottomRight,
+            keep_needs_attention: false,
         }
     }
 }
@@ -1473,6 +1541,21 @@ agent_panel_scope = "current"
 "#;
         let config: Config = toml::from_str(toml).unwrap();
         assert_eq!(config.ui.agent_panel_sort, AgentPanelSortConfig::Spaces);
+    }
+
+    #[test]
+    fn ui_style_defaults_to_classic_and_parses_app() {
+        assert_eq!(Config::default().ui.style, UiStyleConfig::Classic);
+
+        let config: Config = toml::from_str(
+            r#"
+[ui]
+style = "app"
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.ui.style, UiStyleConfig::App);
+        assert!(toml::from_str::<Config>("[ui]\nstyle = \"fancy\"\n").is_err());
     }
 
     #[test]
@@ -1888,6 +1971,7 @@ position = "top-center"
         assert_eq!(config.ui.toast.delivery, ToastDelivery::Terminal);
         assert_eq!(config.ui.toast.delay_seconds, 2);
         assert_eq!(config.ui.toast.herdr.position, ToastHerdrPosition::TopLeft);
+        assert!(!config.ui.toast.herdr.keep_needs_attention);
         assert!(!config.ui.toast.clipboard.enabled);
         assert_eq!(
             config.ui.toast.clipboard.position,
@@ -1908,6 +1992,24 @@ position = "top-center"
         assert_eq!(
             config.ui.toast.clipboard.position,
             ToastClipboardPosition::BottomCenter
+        );
+    }
+
+    #[test]
+    fn toast_config_parses_keep_needs_attention() {
+        let toml = r#"
+[ui.toast.herdr]
+keep_needs_attention = true
+"#;
+        let config: Config = toml::from_str(toml).unwrap();
+        assert!(config.ui.toast.herdr.keep_needs_attention);
+        assert_eq!(
+            config.ui.toast.herdr.position,
+            ToastHerdrPosition::BottomRight
+        );
+        assert!(!Config::default().ui.toast.herdr.keep_needs_attention);
+        assert!(
+            toml::from_str::<Config>("[ui.toast.herdr]\nkeep_needs_attention = \"yes\"").is_err()
         );
     }
 

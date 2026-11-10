@@ -188,11 +188,17 @@ fn run_client_with_mode(
     let client_rendered_shell = attach_request.is_none();
     let socket_path = client_socket_path();
     let keybinding_source = client_shell_keybinding_source();
+    let startup_diagnostics = loaded_config
+        .diagnostics
+        .iter()
+        .cloned()
+        .chain(shell::app_style_diagnostic(&loaded_config.config))
+        .collect::<Vec<_>>();
     let startup_config_diagnostic =
         if keybinding_source == shell::ClientShellKeybindingSource::Endpoint {
-            crate::config::config_diagnostic_summary_without_keybindings(&loaded_config.diagnostics)
+            crate::config::config_diagnostic_summary_without_keybindings(&startup_diagnostics)
         } else {
-            crate::config::config_diagnostic_summary(&loaded_config.diagnostics)
+            crate::config::config_diagnostic_summary(&startup_diagnostics)
         };
     let shell_config = client_rendered_shell.then(|| {
         shell::ClientShellConfig::from_config(&loaded_config.config)
@@ -498,6 +504,13 @@ async fn run_client_loop(
         shell.set_host_reports_key_releases(config.host_escape_disambiguation_active);
         shell.set_host_erase_byte(crate::platform::terminal_erase_byte());
         shell.set_graphics_cell_size(initial_cell_width_px, initial_cell_height_px);
+        shell.set_host_shows_kitty_images(
+            state.kitty_graphics_enabled
+                && host_shows_kitty_images(
+                    std::env::var("TERM_PROGRAM").ok().as_deref(),
+                    std::env::var("TERM").ok().as_deref(),
+                ),
+        );
         shell.set_endpoint_catalog(&endpoint_catalog.ssh);
         shell.set_endpoint_methods_for(
             &endpoint::ClientEndpointId::Local,
@@ -2389,3 +2402,34 @@ async fn run_client_loop(
 
 #[cfg(test)]
 mod tests;
+
+/// Terminals known to draw kitty images under text, which app-style rounded
+/// corners rely on (`ui.corners = "auto"`).
+fn host_shows_kitty_images(term_program: Option<&str>, term: Option<&str>) -> bool {
+    let program = term_program.unwrap_or_default().to_ascii_lowercase();
+    let term = term.unwrap_or_default().to_ascii_lowercase();
+    matches!(program.as_str(), "ghostty" | "kitty" | "wezterm")
+        || term.contains("kitty")
+        || term.contains("ghostty")
+}
+
+#[cfg(test)]
+mod host_kitty_image_tests {
+    use super::host_shows_kitty_images;
+
+    #[test]
+    fn known_kitty_image_terminals_are_detected() {
+        assert!(host_shows_kitty_images(Some("ghostty"), None));
+        assert!(host_shows_kitty_images(Some("WezTerm"), None));
+        assert!(host_shows_kitty_images(None, Some("xterm-kitty")));
+        assert!(host_shows_kitty_images(None, Some("xterm-ghostty")));
+        assert!(!host_shows_kitty_images(
+            Some("Apple_Terminal"),
+            Some("xterm-256color")
+        ));
+        assert!(!host_shows_kitty_images(
+            Some("herdr"),
+            Some("xterm-256color")
+        ));
+    }
+}

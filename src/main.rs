@@ -74,7 +74,7 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 [theme]
 # Built-in themes: catppuccin, terminal, tokyo-night, dracula, nord,
 #                  gruvbox, one-dark, solarized, kanagawa, rose-pine,
-#                  vesper
+#                  vesper, crews (dark slate made for ui.style = "app")
 # name = "catppuccin"
 
 # Follow host terminal light/dark appearance and switch Herdr UI themes.
@@ -192,6 +192,8 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # resize_pane_up = ""     # optional, e.g. "ctrl+shift+alt+up"
 # resize_pane_right = ""  # optional, e.g. "ctrl+shift+alt+right"
 # toggle_sidebar = "prefix+b"
+# toggle_sidebar_spaces = ""  # optional; ui.style = "app" sidebar spaces section
+# toggle_sidebar_agents = ""  # optional; ui.style = "app" sidebar agents section
 
 # Navigate-mode movement. These local shortcuts win while navigate mode is open.
 # They are independent from focus_pane_*. Do not include prefix+, esc, enter, tab, or 1..9 here.
@@ -336,6 +338,17 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # "workspaces" is accepted as an alias for "spaces".
 # agent_panel_sort = "spaces"
 
+# Overall look: "classic" keeps today's shell; "app" draws a polished shell with a
+# panel, cards, and a status bar (dark themes only; light themes stay classic).
+# style = "classic"
+
+# App style only: fade unfocused split panes, from 0.0 (off) to 1.0.
+# dim_unfocused = 0.0
+
+# App style only: rounded corners drawn with kitty images. "auto" turns them on in
+# Ghostty, kitty, and WezTerm; "rounded" forces them; "square" never uses images.
+# corners = "auto"
+
 # Agent status indicators: "dots" preserves the compact color marks; "symbols" uses
 # distinct static glyphs for blocked, working, done, idle, and unknown states.
 # status_indicators = "dots"
@@ -376,6 +389,8 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 
 [ui.toast.herdr]
 # position = "bottom-right"
+# Keep needs-attention toasts until they're opened or dismissed instead of fading after 8s.
+# keep_needs_attention = false
 
 [ui.toast.clipboard]
 # enabled = true

@@ -54,6 +54,7 @@ impl ClientShellState {
                 && self.endpoint_status(&self.active_endpoint_id)
                     == Some(ClientEndpointStatus::Online)
         });
+        let mut unavailable_corners = super::shape::Corners::square();
         let mut render_state = render::ShellRenderState {
             machine_diagnostics: &self.machine_diagnostics,
             endpoints: &self.endpoints,
@@ -68,6 +69,10 @@ impl ClientShellState {
             reveal_focused_tab: &mut self.reveal_focused_tab,
             sidebar_collapsed: false,
             sidebar_section_split: self.sidebar_section_split,
+            sidebar_section_split_manual: self.sidebar_section_split_manual,
+            sidebar_spaces_visible: self.sidebar_spaces_visible,
+            sidebar_agents_visible: self.sidebar_agents_visible,
+            corners: &mut unavailable_corners,
             tab_drag_insert_index: None,
             selected_workspace_id: self
                 .navigate_workspace_id
@@ -205,6 +210,11 @@ impl ClientShellState {
             _ => (None, None),
         };
         let mut buffer = Buffer::empty(Rect::new(0, 0, cols, rows));
+        let mut corners = if self.rounded_corners() {
+            super::shape::Corners::rounded()
+        } else {
+            super::shape::Corners::square()
+        };
         self.hits = render::render_shell(
             &mut buffer,
             layout,
@@ -224,6 +234,10 @@ impl ClientShellState {
                 reveal_focused_tab: &mut self.reveal_focused_tab,
                 sidebar_collapsed: self.sidebar_collapsed,
                 sidebar_section_split: self.sidebar_section_split,
+                sidebar_section_split_manual: self.sidebar_section_split_manual,
+                sidebar_spaces_visible: self.sidebar_spaces_visible,
+                sidebar_agents_visible: self.sidebar_agents_visible,
+                corners: &mut corners,
                 tab_drag_insert_index,
                 selected_workspace_id: self
                     .navigate_workspace_id
@@ -307,7 +321,9 @@ impl ClientShellState {
         if !self.config.mouse_capture {
             self.hits.pane_splits.clear();
         }
-        let mode_bar_area = if layout.mobile_header.is_empty()
+        let mode_bar_area = if !layout.status_bar.is_empty() {
+            layout.status_bar
+        } else if layout.mobile_header.is_empty()
             && self.config.tab_bar_position == TabBarPositionConfig::Bottom
             && !layout.tab_bar.is_empty()
         {
@@ -332,6 +348,18 @@ impl ClientShellState {
                 &self.config.palette,
             )
         };
+        if let Some(app) = self
+            .config
+            .app_tokens()
+            .filter(|_| !layout.status_bar.is_empty())
+        {
+            app_chrome::finish_status_bar(
+                &mut buffer,
+                layout.status_bar,
+                &self.config.palette,
+                app,
+            );
+        }
         if mode_bar == Some(layout.tab_bar) {
             self.hits.tabs.clear();
             self.hits.new_tab = Rect::default();
@@ -344,6 +372,21 @@ impl ClientShellState {
             frame.cells[start..start + usize::from(bar.width)].to_vec()
         });
         blit_pane_surface(&mut frame, &surface.frame, layout.pane_surface);
+        if let Some(app) = self
+            .config
+            .app_tokens()
+            .filter(|_| !layout.panel.is_empty())
+        {
+            app_chrome::paint_pane_gutters(&mut frame, &layout, &surface.panes, app);
+            app_chrome::dim_unfocused_panes(
+                &mut frame,
+                layout.pane_surface,
+                &surface.panes,
+                self.config.dim_unfocused,
+                &self.config.palette,
+                app,
+            );
+        }
         restore_mode_bar(&mut frame, mode_bar, mode_bar_cells.as_deref());
         let mut occlusion = crate::kitty_graphics::surface::Occlusion::default();
         let has_selection = self
@@ -452,6 +495,7 @@ impl ClientShellState {
         }
         restore_mode_bar(&mut frame, mode_bar, mode_bar_cells.as_deref());
         self.hits.notification_toast = Rect::default();
+        self.hits.notification_cards.clear();
         let has_config_diagnostic = self.config_diagnostic.is_some();
         let active_lifecycle = self
             .endpoints
@@ -462,7 +506,7 @@ impl ClientShellState {
         if has_config_diagnostic
             || active_lifecycle.is_some()
             || self.visible_endpoint_notice.is_some()
-            || self.visible_notification.is_some()
+            || !self.visible_notifications.is_empty()
         {
             let cursor = frame.cursor.clone();
             let mut composed = frame.to_ratatui_buffer()?;
@@ -509,7 +553,34 @@ impl ClientShellState {
                         &self.config.palette,
                     )
                 };
-            } else if let Some(notification) = self.visible_notification.as_ref() {
+            } else if let Some(app) = self
+                .config
+                .app_tokens()
+                .filter(|_| layout.mobile_header.is_empty() && !layout.panel.is_empty())
+            {
+                // App style: a stack of floating cards. Each card covers only its own
+                // footprint, and its corners and shadow are lifted above that cover.
+                let layer = corners.start_layer();
+                let cards = app_toasts::render_app_toasts(
+                    &mut composed,
+                    layout.panel,
+                    u16::from(has_config_diagnostic) + lifecycle_offset,
+                    &self.visible_notifications,
+                    &self.config.palette,
+                    app,
+                    &mut corners,
+                );
+                for card in &cards {
+                    occlusion.cover(card.card);
+                }
+                corners.lift_layer(layer, occlusion.level());
+                self.hits.notification_toast = cards
+                    .iter()
+                    .map(|card| card.card)
+                    .reduce(|union, card| union.union(card))
+                    .unwrap_or_default();
+                self.hits.notification_cards = cards;
+            } else if let Some(notification) = self.visible_notifications.first() {
                 self.hits.notification_toast = if layout.mobile_header.is_empty() {
                     notifications::render_visible_notification(
                         &mut composed,
@@ -529,7 +600,9 @@ impl ClientShellState {
                     )
                 };
             }
-            occlusion.cover(self.hits.notification_toast);
+            if self.hits.notification_cards.is_empty() {
+                occlusion.cover(self.hits.notification_toast);
+            }
             frame.replace_from_ratatui_buffer_preserving_effects(&composed, cursor);
         }
         if let Some(feedback) = self.copy_feedback.as_ref() {
@@ -643,34 +716,95 @@ impl ClientShellState {
             occlusion.cover(bar);
         }
         if let Some(overlay) = self.overlay.as_ref() {
+            // App style: menus and overlays float over a scrim.
+            let app = self
+                .config
+                .app_tokens()
+                .filter(|_| !layout.panel.is_empty());
+            if let Some(app) = app.filter(|_| app_popover::overlay_scrims(overlay)) {
+                app_chrome::apply_scrim(&mut frame, &self.config.palette, app);
+                corners.recolor_marks(|color| app_chrome::scrim_color(color, app));
+            }
             let mut composed = frame.to_ratatui_buffer()?;
+            // The overlay's own corners and shadow sit above its footprint.
+            let layer = corners.start_layer();
             let cursor = if let ClientShellOverlay::ContextMenu(menu) = overlay {
-                let rendered =
-                    render::render_context_menu(&mut composed, menu, &self.config.palette)?;
-                occlusion.cover(rendered.area);
-                self.hits.context_menu_rows = rendered.menu_rows;
+                if let Some(app) = app {
+                    let area = composed.area;
+                    let popover = app_popover::render_context_menu(
+                        &mut composed,
+                        menu,
+                        area,
+                        &self.config.palette,
+                        app,
+                        &mut corners,
+                    );
+                    occlusion.cover(popover.area);
+                    self.hits.context_menu_rows = popover.rows;
+                } else {
+                    let rendered =
+                        render::render_context_menu(&mut composed, menu, &self.config.palette)?;
+                    occlusion.cover(rendered.area);
+                    self.hits.context_menu_rows = rendered.menu_rows;
+                }
                 None
             } else if let ClientShellOverlay::GlobalMenu(menu) = overlay {
-                let rendered = render::render_global_menu(
-                    &mut composed,
-                    self.hits.global_launcher,
-                    menu,
-                    snapshot,
-                    &self.config.palette,
-                )?;
-                occlusion.cover(rendered.area);
-                self.hits.global_menu_rows = rendered.menu_rows;
+                if let Some(app) = app {
+                    let popover = app_popover::render_global_menu(
+                        &mut composed,
+                        self.hits.global_launcher,
+                        menu,
+                        snapshot,
+                        &self.config.keybinds,
+                        &self.config.palette,
+                        app,
+                        &mut corners,
+                    );
+                    occlusion.cover(popover.area);
+                    self.hits.global_menu_rows = popover.rows;
+                } else {
+                    let rendered = render::render_global_menu(
+                        &mut composed,
+                        self.hits.global_launcher,
+                        menu,
+                        snapshot,
+                        &self.config.palette,
+                    )?;
+                    occlusion.cover(rendered.area);
+                    self.hits.global_menu_rows = rendered.menu_rows;
+                }
                 None
             } else {
-                let rendered = render::render_client_overlay(
-                    &mut composed,
-                    overlay,
-                    snapshot,
-                    &self.endpoints,
-                    &self.active_endpoint_id,
-                    &self.config.keybinds,
-                    &self.config.palette,
-                )?;
+                let rendered = if let Some(app) = app {
+                    app_popover::render_floating_overlay(
+                        &mut composed,
+                        layout.panel,
+                        |buffer| {
+                            render::render_client_overlay_body(
+                                buffer,
+                                overlay,
+                                snapshot,
+                                &self.endpoints,
+                                &self.active_endpoint_id,
+                                &self.config.keybinds,
+                                &self.config.palette,
+                            )
+                        },
+                        &self.config.palette,
+                        app,
+                        &mut corners,
+                    )?
+                } else {
+                    render::render_client_overlay(
+                        &mut composed,
+                        overlay,
+                        snapshot,
+                        &self.endpoints,
+                        &self.active_endpoint_id,
+                        &self.config.keybinds,
+                        &self.config.palette,
+                    )?
+                };
                 occlusion.cover(rendered.area);
                 self.hits.overlay_primary = rendered.primary;
                 self.hits.overlay_clear = rendered.clear;
@@ -699,6 +833,7 @@ impl ClientShellState {
                 self.hits.release_notes_max_scroll = rendered.release_notes_max_scroll;
                 rendered.cursor
             };
+            corners.lift_layer(layer, occlusion.level());
             frame.replace_from_ratatui_buffer_preserving_effects(&composed, cursor);
         }
         if let Some(ClientShellOverlay::Help(help)) = self.overlay.as_mut() {
@@ -720,7 +855,13 @@ impl ClientShellState {
             self.hits.pane_splits.clear();
             self.hits.popup = None;
         }
-        let graphics = self.compose_graphics(layout, &occlusion);
+        let mut graphics = self.compose_graphics(layout, &occlusion);
+        graphics.extend(if corners.is_rounded() {
+            self.chrome_graphics
+                .encode(&corners, &occlusion, self.graphics_cell_size)
+        } else {
+            self.chrome_graphics.clear()
+        });
         Some(crate::client::frame_output::ComposedFrame { frame, graphics })
     }
 }
