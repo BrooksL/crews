@@ -495,6 +495,7 @@ impl ClientShellState {
         }
         restore_mode_bar(&mut frame, mode_bar, mode_bar_cells.as_deref());
         self.hits.notification_toast = Rect::default();
+        self.hits.notification_cards.clear();
         let has_config_diagnostic = self.config_diagnostic.is_some();
         let active_lifecycle = self
             .endpoints
@@ -505,7 +506,7 @@ impl ClientShellState {
         if has_config_diagnostic
             || active_lifecycle.is_some()
             || self.visible_endpoint_notice.is_some()
-            || self.visible_notification.is_some()
+            || !self.visible_notifications.is_empty()
         {
             let cursor = frame.cursor.clone();
             let mut composed = frame.to_ratatui_buffer()?;
@@ -552,7 +553,34 @@ impl ClientShellState {
                         &self.config.palette,
                     )
                 };
-            } else if let Some(notification) = self.visible_notification.as_ref() {
+            } else if let Some(app) = self
+                .config
+                .app_tokens()
+                .filter(|_| layout.mobile_header.is_empty() && !layout.panel.is_empty())
+            {
+                // App style: a stack of floating cards. Each card covers only its own
+                // footprint, and its corners and shadow are lifted above that cover.
+                let layer = corners.start_layer();
+                let cards = app_toasts::render_app_toasts(
+                    &mut composed,
+                    layout.panel,
+                    u16::from(has_config_diagnostic) + lifecycle_offset,
+                    &self.visible_notifications,
+                    &self.config.palette,
+                    app,
+                    &mut corners,
+                );
+                for card in &cards {
+                    occlusion.cover(card.card);
+                }
+                corners.lift_layer(layer, occlusion.level());
+                self.hits.notification_toast = cards
+                    .iter()
+                    .map(|card| card.card)
+                    .reduce(|union, card| union.union(card))
+                    .unwrap_or_default();
+                self.hits.notification_cards = cards;
+            } else if let Some(notification) = self.visible_notifications.first() {
                 self.hits.notification_toast = if layout.mobile_header.is_empty() {
                     notifications::render_visible_notification(
                         &mut composed,
@@ -572,7 +600,9 @@ impl ClientShellState {
                     )
                 };
             }
-            occlusion.cover(self.hits.notification_toast);
+            if self.hits.notification_cards.is_empty() {
+                occlusion.cover(self.hits.notification_toast);
+            }
             frame.replace_from_ratatui_buffer_preserving_effects(&composed, cursor);
         }
         if let Some(feedback) = self.copy_feedback.as_ref() {

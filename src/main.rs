@@ -389,6 +389,8 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 
 [ui.toast.herdr]
 # position = "bottom-right"
+# Keep needs-attention toasts until they're opened or dismissed instead of fading after 8s.
+# keep_needs_attention = false
 
 [ui.toast.clipboard]
 # enabled = true

@@ -65,6 +65,18 @@ pub(crate) struct Corners {
     rounded: bool,
     marks: Vec<CornerMark>,
     shadows: Vec<ShadowMark>,
+    /// Floating layers (toasts): marks and shadows from these indexes on sit
+    /// above the first `occlusion_level` occluded regions, so the layer's own
+    /// occlusion doesn't hide its corners. Ascending by index.
+    layers: Vec<CornerLayer>,
+}
+
+/// Where a floating layer's marks start, and the occlusion it sits above.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct CornerLayer {
+    marks_from: usize,
+    shadows_from: usize,
+    occlusion_level: usize,
 }
 
 impl Corners {
@@ -91,6 +103,42 @@ impl Corners {
 
     pub(crate) fn shadows(&self) -> &[ShadowMark] {
         &self.shadows
+    }
+
+    /// Start a floating layer: marks and shadows drawn from here on can be
+    /// lifted above occlusion with [`Self::lift_layer`].
+    pub(crate) fn start_layer(&self) -> CornerLayer {
+        CornerLayer {
+            marks_from: self.marks.len(),
+            shadows_from: self.shadows.len(),
+            occlusion_level: 0,
+        }
+    }
+
+    /// Everything drawn since `layer` started sits above the first
+    /// `occlusion_level` occluded regions (typically the layer's own footprint),
+    /// so only later occlusion hides it.
+    pub(crate) fn lift_layer(&mut self, mut layer: CornerLayer, occlusion_level: usize) {
+        layer.occlusion_level = occlusion_level;
+        self.layers.push(layer);
+    }
+
+    /// The occlusion level the mark at `index` sits above.
+    pub(crate) fn mark_occlusion_level(&self, index: usize) -> usize {
+        self.layers
+            .iter()
+            .rev()
+            .find(|layer| index >= layer.marks_from)
+            .map_or(0, |layer| layer.occlusion_level)
+    }
+
+    /// The occlusion level the shadow at `index` sits above.
+    pub(crate) fn shadow_occlusion_level(&self, index: usize) -> usize {
+        self.layers
+            .iter()
+            .rev()
+            .find(|layer| index >= layer.shadows_from)
+            .map_or(0, |layer| layer.occlusion_level)
     }
 
     fn mark(&mut self, buffer: &mut Buffer, mark: CornerMark) {
@@ -288,8 +336,6 @@ const SHADOW_MARGIN_ROWS: u16 = 2;
 
 /// A floating surface (toast, popover): a card plus, in rounded mode, a soft
 /// shadow around it.
-// Toasts and popovers use this from phase 5.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn floating(
     buffer: &mut Buffer,
     content: Rect,

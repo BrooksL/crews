@@ -249,6 +249,7 @@ mod agents_worktrees_notifications;
 mod app_corners;
 mod app_header;
 mod app_sidebar;
+mod app_toasts;
 mod chrome_context;
 mod close_pane;
 mod close_tab;

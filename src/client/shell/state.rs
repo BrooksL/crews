@@ -33,6 +33,7 @@ pub(crate) struct ClientShellConfig {
     pub(super) toast_delivery: crate::config::ToastDelivery,
     pub(super) toast_delay_seconds: u64,
     pub(super) toast_position: crate::config::ToastHerdrPosition,
+    pub(super) toast_keep_needs_attention: bool,
     pub(super) copy_on_select: bool,
     pub(super) clipboard_toast_enabled: bool,
     pub(super) clipboard_toast_position: crate::config::ToastClipboardPosition,
@@ -98,6 +99,18 @@ pub(super) enum ClientMobileTarget {
     Menu(usize),
 }
 
+/// App style: one stacked toast card. `index` points into
+/// `ClientShellState::visible_notifications` as of the last compose.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) struct AppToastHit {
+    pub(super) index: usize,
+    /// The card's footprint, caps included.
+    pub(super) card: Rect,
+    /// The `open` pill; empty when the toast has no pane to open.
+    pub(super) open: Rect,
+    pub(super) dismiss: Rect,
+}
+
 #[derive(Default)]
 pub(super) struct ShellHitMap {
     pub(super) machines: Vec<MachineHit>,
@@ -136,7 +149,10 @@ pub(super) struct ShellHitMap {
     pub(super) mobile_targets: Vec<(Rect, ClientMobileTarget)>,
     pub(super) mobile_max_scroll: usize,
     pub(super) global_launcher: Rect,
+    /// The visible toast's footprint; in app style the union of the stacked cards.
     pub(super) notification_toast: Rect,
+    /// App style: each stacked toast card and its buttons.
+    pub(super) notification_cards: Vec<AppToastHit>,
     pub(super) global_menu_rows: Vec<(Rect, usize)>,
     pub(super) context_menu_rows: Vec<(Rect, usize)>,
     pub(super) overlay_primary: Rect,
@@ -975,7 +991,9 @@ pub(crate) struct ClientShellState {
     pub(super) pending_requests: HashMap<String, PendingEndpointRequest>,
     pub(super) pending_integration_installs: usize,
     pub(super) pending_notifications: Vec<ClientPendingNotification>,
-    pub(super) visible_notification: Option<ClientVisibleNotification>,
+    /// Visible toasts, oldest first. Classic shows at most one; app style stacks up to
+    /// `MAX_STACKED_NOTIFICATIONS`.
+    pub(super) visible_notifications: Vec<ClientVisibleNotification>,
     pub(super) queued_notifications: VecDeque<ClientVisibleNotification>,
     pub(super) endpoint_notice_seen: HashSet<ClientEndpointNoticeKey>,
     pub(super) visible_endpoint_notice: Option<ClientVisibleEndpointNotice>,
@@ -1147,7 +1165,7 @@ impl ClientShellState {
             pending_requests: HashMap::new(),
             pending_integration_installs: 0,
             pending_notifications: Vec::new(),
-            visible_notification: None,
+            visible_notifications: Vec::new(),
             queued_notifications: VecDeque::new(),
             endpoint_notice_seen: HashSet::new(),
             visible_endpoint_notice: None,
