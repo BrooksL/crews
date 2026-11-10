@@ -686,34 +686,93 @@ impl ClientShellState {
             occlusion.cover(bar);
         }
         if let Some(overlay) = self.overlay.as_ref() {
+            // App style: menus and overlays float over a scrim.
+            let app = self
+                .config
+                .app_tokens()
+                .filter(|_| !layout.panel.is_empty());
+            if let Some(app) = app.filter(|_| app_popover::overlay_scrims(overlay)) {
+                app_chrome::apply_scrim(&mut frame, &self.config.palette, app);
+                corners.recolor_marks(|color| app_chrome::scrim_color(color, app));
+            }
             let mut composed = frame.to_ratatui_buffer()?;
             let cursor = if let ClientShellOverlay::ContextMenu(menu) = overlay {
-                let rendered =
-                    render::render_context_menu(&mut composed, menu, &self.config.palette)?;
-                occlusion.cover(rendered.area);
-                self.hits.context_menu_rows = rendered.menu_rows;
+                if let Some(app) = app {
+                    let area = composed.area;
+                    let popover = app_popover::render_context_menu(
+                        &mut composed,
+                        menu,
+                        area,
+                        &self.config.palette,
+                        app,
+                        &mut corners,
+                    );
+                    occlusion.cover(popover.area);
+                    self.hits.context_menu_rows = popover.rows;
+                } else {
+                    let rendered =
+                        render::render_context_menu(&mut composed, menu, &self.config.palette)?;
+                    occlusion.cover(rendered.area);
+                    self.hits.context_menu_rows = rendered.menu_rows;
+                }
                 None
             } else if let ClientShellOverlay::GlobalMenu(menu) = overlay {
-                let rendered = render::render_global_menu(
-                    &mut composed,
-                    self.hits.global_launcher,
-                    menu,
-                    snapshot,
-                    &self.config.palette,
-                )?;
-                occlusion.cover(rendered.area);
-                self.hits.global_menu_rows = rendered.menu_rows;
+                if let Some(app) = app {
+                    let popover = app_popover::render_global_menu(
+                        &mut composed,
+                        self.hits.global_launcher,
+                        menu,
+                        snapshot,
+                        &self.config.keybinds,
+                        &self.config.palette,
+                        app,
+                        &mut corners,
+                    );
+                    occlusion.cover(popover.area);
+                    self.hits.global_menu_rows = popover.rows;
+                } else {
+                    let rendered = render::render_global_menu(
+                        &mut composed,
+                        self.hits.global_launcher,
+                        menu,
+                        snapshot,
+                        &self.config.palette,
+                    )?;
+                    occlusion.cover(rendered.area);
+                    self.hits.global_menu_rows = rendered.menu_rows;
+                }
                 None
             } else {
-                let rendered = render::render_client_overlay(
-                    &mut composed,
-                    overlay,
-                    snapshot,
-                    &self.endpoints,
-                    &self.active_endpoint_id,
-                    &self.config.keybinds,
-                    &self.config.palette,
-                )?;
+                let rendered = if let Some(app) = app {
+                    app_popover::render_floating_overlay(
+                        &mut composed,
+                        layout.panel,
+                        |buffer| {
+                            render::render_client_overlay_body(
+                                buffer,
+                                overlay,
+                                snapshot,
+                                &self.endpoints,
+                                &self.active_endpoint_id,
+                                &self.config.keybinds,
+                                &self.config.palette,
+                            )
+                        },
+                        &self.config.palette,
+                        app,
+                        &mut corners,
+                    )?
+                } else {
+                    render::render_client_overlay(
+                        &mut composed,
+                        overlay,
+                        snapshot,
+                        &self.endpoints,
+                        &self.active_endpoint_id,
+                        &self.config.keybinds,
+                        &self.config.palette,
+                    )?
+                };
                 occlusion.cover(rendered.area);
                 self.hits.overlay_primary = rendered.primary;
                 self.hits.overlay_clear = rendered.clear;

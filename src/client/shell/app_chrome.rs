@@ -208,6 +208,76 @@ pub(super) fn dim_unfocused_panes(
     }
 }
 
+/// How far the scrim pulls colors toward `app.scrim`.
+pub(super) const SCRIM_AMOUNT: f64 = 0.5;
+
+/// Blend `color` toward the scrim. Colors without an RGB value are returned
+/// unchanged.
+pub(super) fn scrim_color(color: Color, app: &AppTokens) -> Color {
+    match (
+        crate::app::app_tokens::rgb(color),
+        crate::app::app_tokens::rgb(app.scrim),
+    ) {
+        (Some(color), Some(scrim)) => {
+            let (r, g, b) = crate::app::app_tokens::mix(color, scrim, SCRIM_AMOUNT);
+            Color::Rgb(r, g, b)
+        }
+        _ => color,
+    }
+}
+
+/// Fade everything already drawn behind an open menu: blend each cell's
+/// foreground and background halfway toward `app.scrim`. Default colors use
+/// the theme text and pane background. Text in a color that can't be blended
+/// (indexed or named) is dimmed instead.
+pub(super) fn apply_scrim(frame: &mut FrameData, palette: &Palette, app: &AppTokens) {
+    let Some(scrim) = crate::app::app_tokens::rgb(app.scrim) else {
+        return;
+    };
+    let blend = |color: (u8, u8, u8)| {
+        let (r, g, b) = crate::app::app_tokens::mix(color, scrim, SCRIM_AMOUNT);
+        crate::protocol::color_to_u32(Color::Rgb(r, g, b))
+    };
+    let default_fg = crate::app::app_tokens::rgb(palette.text).map(blend);
+    let default_bg = crate::app::app_tokens::rgb(app.pane_bg).map(blend);
+    let dim = ratatui::style::Modifier::DIM.bits();
+    // Most cells share a handful of colors; remember the last blend.
+    let mut last = (u32::MAX, 0u32);
+    let mut blend_packed = |value: u32| -> Option<u32> {
+        if value == last.0 {
+            return Some(last.1);
+        }
+        let blended = packed_rgb(value).map(blend)?;
+        last = (value, blended);
+        Some(blended)
+    };
+    for cell in &mut frame.cells {
+        match cell.fg {
+            0 => {
+                if let Some(fg) = default_fg {
+                    cell.fg = fg;
+                }
+            }
+            value => match blend_packed(value) {
+                Some(fg) => cell.fg = fg,
+                None => cell.modifier |= dim,
+            },
+        }
+        match cell.bg {
+            0 => {
+                if let Some(bg) = default_bg {
+                    cell.bg = bg;
+                }
+            }
+            value => {
+                if let Some(bg) = blend_packed(value) {
+                    cell.bg = bg;
+                }
+            }
+        }
+    }
+}
+
 fn packed_rgb(value: u32) -> Option<(u8, u8, u8)> {
     (value >> 24 == 0x02).then_some(((value >> 16) as u8, (value >> 8) as u8, value as u8))
 }

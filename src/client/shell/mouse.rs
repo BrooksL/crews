@@ -2087,6 +2087,12 @@ impl ClientShellState {
                     if let Some(pane_id) = pane_id {
                         let button = self.hits.header_more;
                         self.open_pane_context_menu(pane_id, button.x, button.bottom());
+                        // Right-align the popover with the button.
+                        if let Some(ClientShellOverlay::ContextMenu(menu)) = self.overlay.as_mut() {
+                            menu.x = button
+                                .right()
+                                .saturating_sub(super::app_popover::context_menu_width(menu));
+                        }
                         outcome.repaint = true;
                     }
                     return;

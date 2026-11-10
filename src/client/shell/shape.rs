@@ -93,6 +93,15 @@ impl Corners {
         &self.shadows
     }
 
+    /// Recolor the marks drawn so far, so their images match cells that a
+    /// later pass recolored (the scrim behind an open menu).
+    pub(super) fn recolor_marks(&mut self, recolor: impl Fn(Color) -> Color) {
+        for mark in &mut self.marks {
+            mark.fill = recolor(mark.fill);
+            mark.beneath = recolor(mark.beneath);
+        }
+    }
+
     fn mark(&mut self, buffer: &mut Buffer, mark: CornerMark) {
         if let Some(cell) = buffer.cell_mut((mark.x, mark.y)) {
             let symbol_is_blank = cell.symbol().trim().is_empty()
@@ -288,7 +297,7 @@ const SHADOW_MARGIN_ROWS: u16 = 2;
 
 /// A floating surface (toast, popover): a card plus, in rounded mode, a soft
 /// shadow around it.
-// Toasts and popovers use this from phase 5.
+// Toasts use this; they land on a separate branch.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn floating(
     buffer: &mut Buffer,
@@ -297,6 +306,75 @@ pub(super) fn floating(
     corners: &mut Corners,
 ) -> Rect {
     let footprint = card(buffer, content, fill, corners);
+    push_shadow(buffer, footprint, corners);
+    footprint
+}
+
+/// A floating surface over mixed content (menus, overlays). Like
+/// [`floating`], but `content` is left as drawn, and each cap cell keeps its
+/// own background as the surface beneath. `default_beneath` stands in for
+/// cells with no background set.
+pub(super) fn floating_over(
+    buffer: &mut Buffer,
+    content: Rect,
+    fill: Color,
+    default_beneath: Color,
+    corners: &mut Corners,
+) -> Rect {
+    let content = content.intersection(buffer.area);
+    if content.is_empty() {
+        return Rect::default();
+    }
+    let top = content.y.checked_sub(1);
+    let bottom = (content.bottom() < buffer.area.bottom()).then_some(content.bottom());
+    for (y, symbol, ends) in [
+        (top, UPPER_CAP, (CornerKind::TopLeft, CornerKind::TopRight)),
+        (
+            bottom,
+            LOWER_CAP,
+            (CornerKind::BottomLeft, CornerKind::BottomRight),
+        ),
+    ] {
+        let Some(y) = y else { continue };
+        for x in content.left()..content.right() {
+            let cell = &mut buffer[(x, y)];
+            let beneath = match cell.bg {
+                Color::Reset => default_beneath,
+                color => color,
+            };
+            cell.reset();
+            cell.set_symbol(symbol)
+                .set_style(Style::default().fg(fill).bg(beneath));
+            let kind = if x == content.x {
+                Some(ends.0)
+            } else if x + 1 == content.right() {
+                Some(ends.1)
+            } else {
+                None
+            };
+            if let Some(kind) = kind.filter(|_| corners.rounded && content.width >= 2) {
+                corners.mark(
+                    buffer,
+                    CornerMark {
+                        x,
+                        y,
+                        kind,
+                        radius: Radius::Card,
+                        fill,
+                        beneath,
+                    },
+                );
+            }
+        }
+    }
+    let first = top.unwrap_or(content.y);
+    let last = bottom.map_or(content.bottom(), |row| row + 1);
+    let footprint = Rect::new(content.x, first, content.width, last - first);
+    push_shadow(buffer, footprint, corners);
+    footprint
+}
+
+fn push_shadow(buffer: &Buffer, footprint: Rect, corners: &mut Corners) {
     if corners.rounded && !footprint.is_empty() {
         let left = footprint.x.saturating_sub(SHADOW_MARGIN_COLUMNS);
         let top = footprint.y.saturating_sub(SHADOW_MARGIN_ROWS);
@@ -312,7 +390,6 @@ pub(super) fn floating(
             card: footprint,
         });
     }
-    footprint
 }
 
 /// A one-row pill: `label` with one column of padding on each side, filled
