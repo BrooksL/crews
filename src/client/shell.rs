@@ -7,6 +7,7 @@ mod app_chrome;
 mod app_header;
 mod app_popover;
 mod app_sidebar;
+mod app_toasts;
 mod chrome_graphics;
 mod key_hints;
 mod machine_diagnostics;

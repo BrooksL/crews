@@ -94,8 +94,10 @@ impl ChromeGraphics {
         let mut wanted = Vec::with_capacity(corners.marks().len() + corners.shadows().len());
         let mut used_images = HashSet::new();
 
-        for shadow in corners.shadows() {
-            if shadow.area.is_empty() || occlusion.covers_rect(shadow.card) {
+        for (index, shadow) in corners.shadows().iter().enumerate() {
+            if shadow.area.is_empty()
+                || occlusion.covers_rect_above(shadow.card, corners.shadow_occlusion_level(index))
+            {
                 continue;
             }
             let key = ImageKey::Shadow {
@@ -119,8 +121,11 @@ impl ChromeGraphics {
                 z: SHADOW_Z,
             });
         }
-        for mark in corners.marks() {
-            if occlusion.covers_rect(Rect::new(mark.x, mark.y, 1, 1)) {
+        for (index, mark) in corners.marks().iter().enumerate() {
+            if occlusion.covers_rect_above(
+                Rect::new(mark.x, mark.y, 1, 1),
+                corners.mark_occlusion_level(index),
+            ) {
                 continue;
             }
             let key = ImageKey::Corner {

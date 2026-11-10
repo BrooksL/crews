@@ -1600,7 +1600,7 @@ fn semantic_notifications_use_client_policy_and_stable_navigation_targets() {
     state.mode = ClientShellMode::Navigate;
     let ignored = state.handle_raw_events(vec![click()]);
     assert!(ignored.actions.is_empty());
-    assert!(state.visible_notification.is_some());
+    assert!(!state.visible_notifications.is_empty());
 
     state.mode = ClientShellMode::Terminal;
     let outcome = state.handle_raw_events(vec![click()]);
@@ -1613,7 +1613,7 @@ fn semantic_notifications_use_client_policy_and_stable_navigation_targets() {
                     if params.pane_id == "pane_2"
             )
     )));
-    assert!(state.visible_notification.is_none());
+    assert!(state.visible_notifications.is_empty());
 
     state.receive_notification(
         &ClientEndpointId::Local,
@@ -1644,7 +1644,7 @@ fn semantic_notifications_use_client_policy_and_stable_navigation_targets() {
                     if params.pane_id == "pane_2"
             )
     )));
-    assert!(state.visible_notification.is_none());
+    assert!(state.visible_notifications.is_empty());
 
     state.receive_notification(
         &ClientEndpointId::Local,
@@ -1661,7 +1661,7 @@ fn semantic_notifications_use_client_policy_and_stable_navigation_targets() {
         },
         now,
     );
-    assert!(state.visible_notification.is_some());
+    assert!(!state.visible_notifications.is_empty());
     state.config.toast_delay_seconds = 1;
     let (_, repaint) = state.receive_notification(
         &ClientEndpointId::Local,
@@ -1679,6 +1679,6 @@ fn semantic_notifications_use_client_policy_and_stable_navigation_targets() {
         now,
     );
     assert!(repaint);
-    assert!(state.visible_notification.is_none());
+    assert!(state.visible_notifications.is_empty());
     assert_eq!(state.pending_notifications.len(), 1);
 }

@@ -1,6 +1,8 @@
 use super::*;
 
 const MAX_QUEUED_NOTIFICATIONS: usize = 8;
+/// App style shows this many toasts at once, newest at the bottom; classic shows one.
+pub(super) const MAX_STACKED_NOTIFICATIONS: usize = 3;
 const COMPLETION_EVIDENCE_GRACE: std::time::Duration = std::time::Duration::from_secs(1);
 pub(super) const COMPLETION_RECHECK_INTERVAL: std::time::Duration =
     std::time::Duration::from_millis(50);
@@ -27,13 +29,20 @@ impl ClientShellState {
             .retain(|pending| &pending.endpoint_id != endpoint_id);
         self.queued_notifications
             .retain(|queued| &queued.endpoint_id != endpoint_id);
-        if self
-            .visible_notification
-            .as_ref()
-            .is_some_and(|visible| &visible.endpoint_id == endpoint_id)
-        {
-            self.visible_notification = None;
-            self.promote_queued_notification(std::time::Instant::now());
+        let visible = self.visible_notifications.len();
+        self.visible_notifications
+            .retain(|visible| &visible.endpoint_id != endpoint_id);
+        if self.visible_notifications.len() != visible {
+            self.promote_queued_notifications(std::time::Instant::now());
+        }
+    }
+
+    /// How many toasts may be visible at once: a stack in app style, one in classic.
+    pub(super) fn visible_notification_capacity(&self) -> usize {
+        if self.config.app_tokens().is_some() {
+            MAX_STACKED_NOTIFICATIONS
+        } else {
+            1
         }
     }
 
@@ -42,9 +51,9 @@ impl ClientShellState {
         mut notification: ClientVisibleNotification,
         now: std::time::Instant,
     ) {
-        if self.visible_notification.is_none() {
+        if self.visible_notifications.len() < self.visible_notification_capacity() {
             notification.deadline = now + notification_duration(notification.event.kind);
-            self.visible_notification = Some(notification);
+            self.visible_notifications.push(notification);
             return;
         }
         if self.queued_notifications.len() == MAX_QUEUED_NOTIFICATIONS {
@@ -53,17 +62,59 @@ impl ClientShellState {
         self.queued_notifications.push_back(notification);
     }
 
-    fn promote_queued_notification(&mut self, now: std::time::Instant) -> bool {
-        let Some(mut notification) = self.queued_notifications.pop_front() else {
-            return false;
-        };
-        notification.deadline = now + notification_duration(notification.event.kind);
-        self.visible_notification = Some(notification);
-        true
+    /// Fill free toast slots from the queue, oldest first.
+    fn promote_queued_notifications(&mut self, now: std::time::Instant) -> bool {
+        let capacity = self.visible_notification_capacity();
+        let mut promoted = false;
+        while self.visible_notifications.len() < capacity {
+            let Some(mut notification) = self.queued_notifications.pop_front() else {
+                break;
+            };
+            notification.deadline = now + notification_duration(notification.event.kind);
+            self.visible_notifications.push(notification);
+            promoted = true;
+        }
+        promoted
     }
 
+    /// Whether a visible toast's timer has run out. With
+    /// `ui.toast.herdr.keep_needs_attention`, needs-attention toasts never time out.
+    fn visible_notification_expired(
+        keep_needs_attention: bool,
+        notification: &ClientVisibleNotification,
+        now: std::time::Instant,
+    ) -> bool {
+        now >= notification.deadline
+            && !(keep_needs_attention
+                && notification.event.kind == SemanticNotificationKind::NeedsAttention)
+    }
+
+    /// Remove the visible toast at `index` and promote from the queue.
+    pub(super) fn dismiss_visible_notification(
+        &mut self,
+        index: usize,
+        outcome: &mut ClientShellInput,
+    ) {
+        if index >= self.visible_notifications.len() {
+            return;
+        }
+        self.visible_notifications.remove(index);
+        self.promote_queued_notifications(std::time::Instant::now());
+        outcome.repaint = true;
+    }
+
+    /// Open the oldest visible toast's target (the `open_notification_target` keybind).
     pub(super) fn focus_visible_notification(&mut self, outcome: &mut ClientShellInput) {
-        let Some(notification) = self.visible_notification.as_ref() else {
+        self.focus_visible_notification_at(0, outcome);
+    }
+
+    /// Focus the pane behind the visible toast at `index` and close the toast.
+    pub(super) fn focus_visible_notification_at(
+        &mut self,
+        index: usize,
+        outcome: &mut ClientShellInput,
+    ) {
+        let Some(notification) = self.visible_notifications.get(index) else {
             return;
         };
         if notification.event.pane_id.is_some()
@@ -74,11 +125,8 @@ impl ClientShellState {
             outcome.repaint = true;
             return;
         }
-        let notification = self
-            .visible_notification
-            .take()
-            .expect("checked visible notification");
-        self.promote_queued_notification(std::time::Instant::now());
+        let notification = self.visible_notifications.remove(index);
+        self.promote_queued_notifications(std::time::Instant::now());
         outcome.repaint = true;
         let Some(pane_id) = notification.event.pane_id else {
             return;
@@ -111,7 +159,7 @@ impl ClientShellState {
             .checked_add(std::time::Duration::from_secs(delay))
             .unwrap_or(now);
         let cleared_visible = event.pane_id.as_deref().is_some_and(|pane_id| {
-            self.visible_notification.as_ref().is_some_and(|visible| {
+            self.visible_notifications.iter().any(|visible| {
                 visible.endpoint_id == *endpoint_id
                     && visible.event.pane_id.as_deref() == Some(pane_id)
             })
@@ -126,8 +174,11 @@ impl ClientShellState {
                     || queued.event.pane_id.as_deref() != Some(pane_id)
             });
             if cleared_visible {
-                self.visible_notification = None;
-                self.promote_queued_notification(now);
+                self.visible_notifications.retain(|visible| {
+                    visible.endpoint_id != *endpoint_id
+                        || visible.event.pane_id.as_deref() != Some(pane_id)
+                });
+                self.promote_queued_notifications(now);
             }
         }
         // Completion evidence is advisory. A Finished effect is valid only while the
@@ -149,13 +200,22 @@ impl ClientShellState {
         now: std::time::Instant,
     ) -> (Vec<ClientShellNotificationEffect>, bool) {
         let mut repaint = false;
-        if self
-            .visible_notification
-            .as_ref()
-            .is_some_and(|visible| now >= visible.deadline)
-        {
-            self.visible_notification = None;
-            self.promote_queued_notification(now);
+        // A config reload from app style to classic leaves more toasts than fit:
+        // return the newest to the front of the queue, in order.
+        let capacity = self.visible_notification_capacity();
+        if self.visible_notifications.len() > capacity {
+            for notification in self.visible_notifications.drain(capacity..).rev() {
+                self.queued_notifications.push_front(notification);
+            }
+            repaint = true;
+        }
+        let keep_needs_attention = self.config.toast_keep_needs_attention;
+        let visible = self.visible_notifications.len();
+        self.visible_notifications.retain(|notification| {
+            !Self::visible_notification_expired(keep_needs_attention, notification, now)
+        });
+        if self.visible_notifications.len() != visible {
+            self.promote_queued_notifications(now);
             repaint = true;
         }
         if self

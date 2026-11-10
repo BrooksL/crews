@@ -70,8 +70,24 @@ impl Occlusion {
     }
 
     /// Whether anything drawn over the frame touches `rect`.
+    #[allow(dead_code)] // Kept for callers that don't layer; chrome uses `covers_rect_above`.
     pub(crate) fn covers_rect(&self, rect: Rect) -> bool {
-        self.regions.iter().any(|region| region.intersects(rect))
+        self.covers_rect_above(rect, 0)
+    }
+
+    /// How many regions are covered so far. Pass it to [`Self::covers_rect_above`]
+    /// to ask only about what was drawn after that point.
+    pub(crate) fn level(&self) -> usize {
+        self.regions.len()
+    }
+
+    /// Whether anything covered after the first `level` regions touches `rect`.
+    pub(crate) fn covers_rect_above(&self, rect: Rect, level: usize) -> bool {
+        self.regions
+            .get(level..)
+            .unwrap_or_default()
+            .iter()
+            .any(|region| region.intersects(rect))
     }
 
     pub(crate) fn start_popup(&mut self, rect: Rect) {

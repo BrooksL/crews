@@ -1007,9 +1007,30 @@ impl ClientShellState {
         }
         if self.overlay.is_none()
             && self.mode == ClientShellMode::Terminal
+            && mouse.kind == MouseEventKind::Down(MouseButton::Left)
+        {
+            if let Some(card) = self
+                .hits
+                .notification_cards
+                .iter()
+                .find(|card| super::contains(card.card, point))
+                .copied()
+            {
+                // App-style toast: open or dismiss; the rest of the card is inert.
+                if super::contains(card.open, point) {
+                    self.focus_visible_notification_at(card.index, outcome);
+                } else if super::contains(card.dismiss, point) {
+                    self.dismiss_visible_notification(card.index, outcome);
+                }
+                return;
+            }
+        }
+        if self.overlay.is_none()
+            && self.mode == ClientShellMode::Terminal
+            && self.hits.notification_cards.is_empty()
             && self
-                .visible_notification
-                .as_ref()
+                .visible_notifications
+                .first()
                 .is_some_and(|notification| notification.event.pane_id.is_some())
             && mouse.kind == MouseEventKind::Down(MouseButton::Left)
             && super::contains(self.hits.notification_toast, point)

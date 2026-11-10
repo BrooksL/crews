@@ -312,6 +312,12 @@ fn rounded_mode_recolors_corners_under_the_scrim_and_shadows_the_menu() {
         !reopened.contains("a=t,"),
         "cached while the menu stays open"
     );
+    // The popover's own top-left corner is placed even though the menu
+    // covers what's beneath it.
+    let row = state.hits.global_menu_rows[0].0;
+    let (x, y) = (row.x - 1, row.y - 1);
+    let placement = format!("\x1b[{};{}H\x1b_Ga=p,", y + 1, x + 1);
+    assert!(reopened.contains(&placement), "popover corner placed");
 }
 
 #[test]

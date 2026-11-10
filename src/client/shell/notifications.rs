@@ -257,7 +257,7 @@ mod tests {
     #[test]
     fn unavailable_notification_target_stays_visible_and_reports_the_machine() {
         let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
-        state.visible_notification = Some(ClientVisibleNotification {
+        state.visible_notifications = vec![ClientVisibleNotification {
             endpoint_id: ClientEndpointId::Local,
             event: SemanticNotification {
                 kind: SemanticNotificationKind::NeedsAttention,
@@ -271,12 +271,12 @@ mod tests {
                 position: None,
             },
             deadline: std::time::Instant::now() + std::time::Duration::from_secs(5),
-        });
+        }];
         let mut outcome = ClientShellInput::default();
 
         state.focus_visible_notification(&mut outcome);
 
-        assert!(state.visible_notification.is_some());
+        assert!(!state.visible_notifications.is_empty());
         assert!(state
             .visible_endpoint_notice
             .as_ref()
@@ -327,7 +327,7 @@ mod tests {
 
         assert!(effects.is_empty());
         assert!(!repaint);
-        assert!(state.visible_notification.is_none());
+        assert!(state.visible_notifications.is_empty());
     }
 
     #[test]
@@ -394,15 +394,15 @@ mod tests {
         let mut remote = notification();
         remote.endpoint_id = remote_id.clone();
         remote.event.title = "remote".into();
-        state.visible_notification = Some(local);
+        state.visible_notifications = vec![local];
         state.queued_notifications.push_back(remote);
 
         state.retire_endpoint_notifications(&ClientEndpointId::Local);
 
         assert_eq!(
             state
-                .visible_notification
-                .as_ref()
+                .visible_notifications
+                .first()
                 .map(|notification| (&notification.endpoint_id, notification.event.title.as_str())),
             Some((&remote_id, "remote"))
         );
@@ -434,8 +434,8 @@ mod tests {
 
         assert_eq!(
             state
-                .visible_notification
-                .as_ref()
+                .visible_notifications
+                .first()
                 .map(|notification| notification.event.title.as_str()),
             Some("first")
         );
@@ -445,8 +445,8 @@ mod tests {
 
         assert_eq!(
             state
-                .visible_notification
-                .as_ref()
+                .visible_notifications
+                .first()
                 .map(|notification| notification.event.title.as_str()),
             Some("second")
         );

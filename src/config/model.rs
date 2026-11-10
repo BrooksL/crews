@@ -229,6 +229,9 @@ pub struct ToastConfig {
 #[serde(default)]
 pub struct HerdrToastConfig {
     pub position: ToastHerdrPosition,
+    /// Keep needs-attention toasts until they are opened, dismissed, or replaced by a
+    /// newer event for the same pane. Default: false.
+    pub keep_needs_attention: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -1325,6 +1328,7 @@ impl Default for HerdrToastConfig {
     fn default() -> Self {
         Self {
             position: ToastHerdrPosition::BottomRight,
+            keep_needs_attention: false,
         }
     }
 }
@@ -1967,6 +1971,7 @@ position = "top-center"
         assert_eq!(config.ui.toast.delivery, ToastDelivery::Terminal);
         assert_eq!(config.ui.toast.delay_seconds, 2);
         assert_eq!(config.ui.toast.herdr.position, ToastHerdrPosition::TopLeft);
+        assert!(!config.ui.toast.herdr.keep_needs_attention);
         assert!(!config.ui.toast.clipboard.enabled);
         assert_eq!(
             config.ui.toast.clipboard.position,
@@ -1987,6 +1992,24 @@ position = "top-center"
         assert_eq!(
             config.ui.toast.clipboard.position,
             ToastClipboardPosition::BottomCenter
+        );
+    }
+
+    #[test]
+    fn toast_config_parses_keep_needs_attention() {
+        let toml = r#"
+[ui.toast.herdr]
+keep_needs_attention = true
+"#;
+        let config: Config = toml::from_str(toml).unwrap();
+        assert!(config.ui.toast.herdr.keep_needs_attention);
+        assert_eq!(
+            config.ui.toast.herdr.position,
+            ToastHerdrPosition::BottomRight
+        );
+        assert!(!Config::default().ui.toast.herdr.keep_needs_attention);
+        assert!(
+            toml::from_str::<Config>("[ui.toast.herdr]\nkeep_needs_attention = \"yes\"").is_err()
         );
     }
 

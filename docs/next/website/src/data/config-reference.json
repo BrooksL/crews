@@ -1496,6 +1496,12 @@
           ]
         },
         {
+          "key": "ui.toast.herdr.keep_needs_attention",
+          "type": "boolean",
+          "default": "false",
+          "description": "Keep needs-attention toasts on screen until you open or dismiss them, run the open-notification keybind, or a newer event for the same pane replaces them. Other toasts still go away on their own."
+        },
+        {
           "key": "ui.toast.clipboard.enabled",
           "type": "boolean",
           "default": "true",
